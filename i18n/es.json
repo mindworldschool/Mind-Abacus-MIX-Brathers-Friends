@@ -1,0 +1,107 @@
+{
+  "language": "Español",
+  "header": {
+    "titleMain": "Mind Abacus",
+    "titleSub": "Piensa rápido. Cuenta con inteligencia.",
+    "tagline": "Entrenador de aritmética mental",
+    "steps": {
+      "settings": "Ajustes",
+      "confirmation": "Confirmación",
+      "game": "Entrenamiento",
+      "results": "Resultados"
+    }
+  },
+  "footer": "MindWorld School © 2025",
+  "buttons": {
+    "back": "Atrás",
+    "continue": "Continuar",
+    "start": "Comenzar práctica",
+    "finish": "Finalizar",
+    "new": "Nueva configuración"
+  },
+  "settings": {
+    "title": "Configura la sesión",
+    "description": "Elige cómo quieres practicar hoy.",
+    "modeLabel": "Modo",
+    "modeOptions": [
+      { "value": "abacus", "label": "En el ábaco" },
+      { "value": "mental", "label": "Mentalmente" }
+    ],
+    "digitsLabel": "Rango de números",
+    "digitsOptions": [
+      { "value": "1", "label": "De una cifra" },
+      { "value": "2", "label": "De dos cifras" },
+      { "value": "3", "label": "De tres cifras" }
+    ],
+    "speedLabel": "Ritmo",
+    "speedOptions": [
+      { "value": "slow", "label": "Lento" },
+      { "value": "standard", "label": "Medio" },
+      { "value": "fast", "label": "Rápido" }
+    ],
+    "roundsLabel": "Ejemplos",
+    "roundsHint": "10 ejemplos por ronda son un buen calentamiento.",
+    "dictationLabel": "Activar dictado de voz",
+    "dictationHint": "Lee los números en voz alta durante la sesión.",
+    "submit": "Continuar",
+    "exam": {
+      "button": "📋 Hoja de Examen"
+    }
+  },
+  "exam": {
+    "title": "Hoja de Examen",
+    "print": "🖨️ Imprimir",
+    "back": "← Atrás"
+  },
+  "confirmation": {
+    "title": "Revisa la configuración",
+    "description": "Asegúrate de que los parámetros sean correctos antes de iniciar.",
+    "list": {
+      "mode": "Modo",
+      "digits": "Rango",
+      "speed": "Ritmo",
+      "rounds": "Ejemplos",
+      "dictation": "Dictado"
+    },
+    "dictation": {
+      "on": "Activado",
+      "off": "Desactivado"
+    }
+  },
+  "game": {
+    "title": "Sesión de práctica",
+    "description": "Resuelve los ejemplos y pulsa finalizar cuando termines.",
+    "helper": "10 ejemplos por ronda. ¡Mantén el ritmo!",
+    "cta": "Finalizar sesión"
+  },
+  "results": {
+    "title": "Resultados de la sesión",
+    "description": "Así fue el intento.",
+    "success": "Correctos",
+    "mistakes": "Errores",
+    "cta": "Iniciar nueva configuración",
+    "retryErrors": "Corregir errores"
+  },
+  "timer": {
+  "out": "¡Tiempo agotado!",
+  "left": "Quedan {seconds} segundos",
+  "paused": "Temporizador en pausa",
+  "continue": "Reanudar"
+},
+"answer": {
+  "enterNumber": "Por favor, introduce un número",
+  "correct": "Respuesta correcta: {value}",
+  "wrong": "Respuesta incorrecta",
+  "timeUp": "Se acabó el tiempo. Respuesta correcta: {value}"
+},
+"dictation": {
+  "enabled": "Modo dictado activado",
+  "showing": "Mostrando números uno por uno",
+  "finished": "Dictado finalizado"
+},
+"progress": {
+  "examples": "Ejemplos",
+  "correct": "Correctos",
+  "mistakes": "Errores"
+}
+}
