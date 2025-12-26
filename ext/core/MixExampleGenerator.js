@@ -2,16 +2,31 @@
 //
 // ПРАВИЛО "МИКС":
 // Одно действие (например +6), которое внутри требует:
-// 1. Локального преобразования "Братья" (через 5) в единицах
-// 2. Затем действия "Друзья" (через 10) с переносом/заёмом в десятках
+// 1. Локального преобразования "Братья" (через 5) в целевом разряде
+// 2. Затем действия "Друзья" (через 10) с переносом/заёмом в следующий разряд
 //
 // РАЗРЯДНОСТЬ:
-// - Режим "Однозначные" → 2 разряда (единицы + десятки), диапазон 0..99
-// - Всегда начинаем с 0
+// - digitCount=1 → состояние 2 разряда [единицы, десятки], диапазон 0..99
+// - digitCount=2 → состояние 3 разряда [единицы, десятки, сотни], диапазон 0..999
+// - digitCount=3 → состояние 4 разряда [единицы, десятки, сотни, тысячи], диапазон 0..9999
+// - digitCount=N → состояние N+1 разрядов
+//
+// ЦЕЛЕВОЙ РАЗРЯД (где применяется МИКС):
+// - targetPosition = digitCount - 1
+// - digitCount=1: МИКС в единицах (позиция 0)
+// - digitCount=2: МИКС в десятках (позиция 1)
+// - digitCount=3: МИКС в сотнях (позиция 2)
+//
+// ИЕРАРХИЯ ПРАВИЛ ПО ПОЗИЦИЯМ:
+// - targetPosition: МИКС для цифр 6-9 (Brothers + Friends)
+// - targetPosition-1: Friends для цифр 6-9, Brothers для 5, Simple для 0-4
+// - targetPosition-2 и ниже: Brothers для цифр 6-9, Brothers для 5, Simple для 0-4
 //
 // ДИАПАЗОН:
-// - Все промежуточные и финальные значения: 0..99
-// - Запрещено выходить за этот диапазон на любом шаге
+// - Все промежуточные и финальные значения: 0..10^(digitCount+1)-1
+// - digitCount=1: 0..99
+// - digitCount=2: 0..999
+// - digitCount=3: 0..9999
 //
 // ПРАВИЛО "ПРОСТО" (для подготовки к МИКС):
 // - ТОЛЬКО атомарные движения бусин (одно направление)
@@ -30,6 +45,9 @@ export class MixExampleGenerator {
       selectedMixDigits: Array.isArray(config.selectedMixDigits)
         ? config.selectedMixDigits.filter(n => n >= 6 && n <= 9)
         : [6, 7, 8, 9],
+
+      // Разрядность ДЕЙСТВИЙ (1 для однозначных, 2 для двузначных, 3 для трехзначных и т.д.)
+      digitCount: config.digitCount || 1,
 
       // Точное количество шагов в цепочке
       chainLength: config.chainLength || config.maxSteps || 7,
@@ -51,7 +69,15 @@ export class MixExampleGenerator {
       silent: config.silent || false
     };
 
-    // Валидация
+    // Валидация digitCount
+    if (this.config.digitCount < 1 || this.config.digitCount > 9) {
+      if (!this.config.silent) {
+        console.warn(`⚠️ MixExampleGenerator: digitCount должен быть 1-9! Было: ${this.config.digitCount}, устанавливаем 1`);
+      }
+      this.config.digitCount = 1;
+    }
+
+    // Валидация выбранных цифр
     if (this.config.selectedMixDigits.length === 0) {
       if (!this.config.silent) {
         console.warn("⚠️ MixExampleGenerator: не выбрано ни одной цифры МИКС! Используем [6]");
@@ -66,17 +92,40 @@ export class MixExampleGenerator {
       this.config.chainLength = 4;
     }
 
+    // РАЗРЯДНОСТЬ СОСТОЯНИЯ = digitCount + 1 (дополнительный разряд для переноса)
+    // Примеры:
+    //   digitCount=1 (действия однозначные) → stateDigitCount=2 [единицы, десятки]
+    //   digitCount=2 (действия двузначные)  → stateDigitCount=3 [единицы, десятки, сотни]
+    //   digitCount=3 (действия трехзначные) → stateDigitCount=4 [единицы, десятки, сотни, тысячи]
+    this.stateDigitCount = this.config.digitCount + 1;
+
+    // ЦЕЛЕВОЙ РАЗРЯД = самый старший разряд ДЕЙСТВИЯ (digitCount - 1)
+    // Это разряд где применяется правило "МИКС"
+    this.targetPosition = this.config.digitCount - 1;
+
+    // МАКСИМАЛЬНОЕ ЗНАЧЕНИЕ
+    this.maxValue = Math.pow(10, this.stateDigitCount) - 1;
+
     this._log(`🔀 MixExampleGenerator создан:
   Выбранные цифры МИКС: [${this.config.selectedMixDigits.join(', ')}]
+  Разрядность действий: ${this.config.digitCount}
+  Разрядность состояния: ${this.stateDigitCount}
+  Целевой разряд: ${this.targetPosition} (${this._getPositionName(this.targetPosition)})
   Точное количество шагов: ${this.config.chainLength}
   Минимум МИКС: ${this.config.minMixCount}
+  Максимальное значение: ${this.maxValue}
   Вероятность МИКС после минимума: ${this.config.mixTryRate * 100}%
   Окно избежания повторов: ${this.config.avoidRepeatWindow}
   Только сложение (МИКС): ${this.config.onlyAddition}
   Только вычитание (МИКС): ${this.config.onlySubtraction}`);
   }
 
-  // ========== УТИЛИТЫ ДЛЯ ЛОГИРОВАНИЯ ==========
+  // ========== УТИЛИТЫ ДЛЯ ЛОГИРОВАНИЯ И ИМЕНОВАНИЯ ==========
+
+  _getPositionName(pos) {
+    const names = ['единицы', 'десятки', 'сотни', 'тысячи', 'десятки тысяч', 'сотни тысяч', 'миллионы', 'десятки миллионов', 'сотни миллионов'];
+    return names[pos] || `разряд ${pos}`;
+  }
 
   _log(...args) {
     if (!this.config.silent) {
@@ -121,7 +170,50 @@ export class MixExampleGenerator {
     return 5 * U + L;
   }
 
-  // ========== СЕКЦИЯ 2: ВАЛИДАТОРЫ "ПРОСТО" (СТРОГИЕ) ==========
+  // ========== СЕКЦИЯ 2: РАБОТА С СОСТОЯНИЕМ (МАССИВ) ==========
+
+  /**
+   * Преобразовать массив состояния в число
+   * @param {number[]} states - массив разрядов [v0, v1, v2, ...]
+   * @returns {number}
+   */
+  _stateToNumber(states) {
+    if (!Array.isArray(states)) return 0;
+
+    let result = 0;
+    for (let i = 0; i < states.length; i++) {
+      result += (states[i] || 0) * Math.pow(10, i);
+    }
+    return result;
+  }
+
+  /**
+   * Преобразовать число в массив состояния
+   * @param {number} value - числовое значение
+   * @returns {number[]}
+   */
+  _numberToState(value) {
+    const states = Array(this.stateDigitCount).fill(0);
+    let remaining = value;
+
+    for (let i = 0; i < this.stateDigitCount; i++) {
+      states[i] = remaining % 10;
+      remaining = Math.floor(remaining / 10);
+    }
+
+    return states;
+  }
+
+  /**
+   * Скопировать состояние
+   * @param {number[]} states
+   * @returns {number[]}
+   */
+  _copyState(states) {
+    return [...states];
+  }
+
+  // ========== СЕКЦИЯ 3: ВАЛИДАТОРЫ "ПРОСТО" (СТРОГИЕ) ==========
 
   /**
    * Проверка правила ПРОСТО для сложения: ОДНО ОДНОНАПРАВЛЕННОЕ движение вверх
@@ -203,20 +295,20 @@ export class MixExampleGenerator {
     return true;
   }
 
-  // ========== СЕКЦИЯ 3: ТАБЛИЦЫ ТРЕБОВАНИЙ ДЛЯ МИКС ==========
+  // ========== СЕКЦИЯ 4: ТАБЛИЦЫ ТРЕБОВАНИЙ ДЛЯ МИКС ==========
 
   /**
-   * Таблица A - когда +k обязано быть МИКС (по единицам)
+   * Таблица A - когда +k обязано быть МИКС (по целевому разряду)
    *
-   * k  | c=10−k | Требуемое состояние единиц ДО шага | Пояснение
-   * ---|--------|-------------------------------------|----------
-   * +6 | 4      | 8 (U=1,L=3)                         | Для "+10−4" не хватает 1 нижней (L=3), "Братья" даёт +1 нижнюю → L=4 → можно −4
-   * +7 | 3      | 6 (U=1,L=1) или 7 (U=1,L=2)         | Для "+10−3" нужно 3 нижних, а их 1–2; "Братья" добавит +2 нижних
-   * +8 | 2      | 5 (U=1,L=0) или 6 (U=1,L=1)         | Для "+10−2" нужно 2 нижних, а их 0–1; "Братья" добавит +3 нижних
-   * +9 | 1      | 5 (U=1,L=0)                         | Для "+10−1" нужна 1 нижняя, но L=0; "Братья" добавит +4 нижних
+   * k  | c=10−k | Требуемое состояние целевого разряда ДО шага | Пояснение
+   * ---|--------|----------------------------------------------|----------
+   * +6 | 4      | 8 (U=1,L=3)                                  | Для "+10−4" не хватает 1 нижней (L=3), "Братья" даёт +1 нижнюю → L=4 → можно −4
+   * +7 | 3      | 6 (U=1,L=1) или 7 (U=1,L=2)                  | Для "+10−3" нужно 3 нижних, а их 1–2; "Братья" добавит +2 нижних
+   * +8 | 2      | 5 (U=1,L=0) или 6 (U=1,L=1)                  | Для "+10−2" нужно 2 нижних, а их 0–1; "Братья" добавит +3 нижних
+   * +9 | 1      | 5 (U=1,L=0)                                  | Для "+10−1" нужна 1 нижняя, но L=0; "Братья" добавит +4 нижних
    *
    * @param {number} digit - цифра МИКС (6-9)
-   * @returns {number[]} - массив валидных состояний единиц
+   * @returns {number[]} - массив валидных состояний целевого разряда
    */
   _getAdditionRequirements(digit) {
     switch(digit) {
@@ -234,17 +326,17 @@ export class MixExampleGenerator {
   }
 
   /**
-   * Таблица C - когда −k обязано быть МИКС (по единицам)
+   * Таблица C - когда −k обязано быть МИКС (по целевому разряду)
    *
-   * k  | c=10−k | Требуемое состояние единиц ДО шага | Пояснение
-   * ---|--------|-------------------------------------|----------
-   * −6 | 4      | 1..4 (U=0,L=1..4)                   | Нельзя сделать +4 "Просто" (места нет), делаем +4 как +5−1, затем заем −10
-   * −7 | 3      | 2..4 (U=0,L=2..4)                   | Нельзя сделать +3 "Просто", делаем +3 как +5−2
-   * −8 | 2      | 3..4 (U=0,L=3..4)                   | Нельзя сделать +2 "Просто", делаем +2 как +5−3
-   * −9 | 1      | 4 (U=0,L=4)                         | Нельзя сделать +1 "Просто", делаем +1 как +5−4
+   * k  | c=10−k | Требуемое состояние целевого разряда ДО шага | Пояснение
+   * ---|--------|----------------------------------------------|----------
+   * −6 | 4      | 1..4 (U=0,L=1..4)                            | Нельзя сделать +4 "Просто" (места нет), делаем +4 как +5−1, затем заем −10
+   * −7 | 3      | 2..4 (U=0,L=2..4)                            | Нельзя сделать +3 "Просто", делаем +3 как +5−2
+   * −8 | 2      | 3..4 (U=0,L=3..4)                            | Нельзя сделать +2 "Просто", делаем +2 как +5−3
+   * −9 | 1      | 4 (U=0,L=4)                                  | Нельзя сделать +1 "Просто", делаем +1 как +5−4
    *
    * @param {number} digit - цифра МИКС (6-9)
-   * @returns {number[]} - массив валидных состояний единиц
+   * @returns {number[]} - массив валидных состояний целевого разряда
    */
   _getSubtractionRequirements(digit) {
     switch(digit) {
@@ -262,47 +354,48 @@ export class MixExampleGenerator {
   }
 
   /**
-   * Таблица B/D - ограничения на десятки для МИКС
+   * Таблица B/D - ограничения на следующий разряд для МИКС
    *
-   * Для +МИКС: tens ∈ 0..8 (иначе перенос сделает сотни, выйдем за 99)
-   * Для −МИКС: tens ∈ 1..9 (иначе нечего занимать, уйдем в минус)
+   * Для +МИКС: следующий разряд ∈ 0..8 (иначе перенос сделает переполнение)
+   * Для −МИКС: следующий разряд ∈ 1..9 (иначе нечего занимать, уйдем в минус)
    *
-   * @param {number} tens - текущее значение десятков (0-9)
+   * @param {number} nextDigitValue - текущее значение следующего разряда (0-9)
    * @param {boolean} isAddition - это сложение?
    * @returns {boolean}
    */
-  _canApplyMixToTens(tens, isAddition) {
+  _canApplyMixToNextDigit(nextDigitValue, isAddition) {
     if (isAddition) {
-      return tens >= 0 && tens <= 8; // для +МИКС
+      return nextDigitValue >= 0 && nextDigitValue <= 8; // для +МИКС
     } else {
-      return tens >= 1 && tens <= 9; // для −МИКС
+      return nextDigitValue >= 1 && nextDigitValue <= 9; // для −МИКС
     }
   }
 
-  // ========== СЕКЦИЯ 4: ПРОВЕРКА ВОЗМОЖНОСТИ МИКС ==========
+  // ========== СЕКЦИЯ 5: ПРОВЕРКА ВОЗМОЖНОСТИ МИКС ==========
 
   /**
    * Проверить: можно ли выполнить МИКС с данной цифрой и знаком?
    *
-   * @param {object} state - текущее состояние {units, tens}
+   * @param {number[]} states - текущее состояние массива
    * @param {number} digit - цифра МИКС (6-9)
    * @param {boolean} isAddition - сложение или вычитание
    * @returns {boolean}
    */
-  _canApplyMix(state, digit, isAddition) {
-    const { units, tens } = state;
+  _canApplyMix(states, digit, isAddition) {
+    const targetValue = states[this.targetPosition] || 0;
+    const nextValue = states[this.targetPosition + 1] || 0;
 
-    // Проверка 1: ограничения на десятки
-    if (!this._canApplyMixToTens(tens, isAddition)) {
+    // Проверка 1: ограничения на следующий разряд
+    if (!this._canApplyMixToNextDigit(nextValue, isAddition)) {
       return false;
     }
 
-    // Проверка 2: состояние единиц должно быть в требуемом диапазоне
+    // Проверка 2: состояние целевого разряда должно быть в требуемом диапазоне
     const requirements = isAddition
       ? this._getAdditionRequirements(digit)
       : this._getSubtractionRequirements(digit);
 
-    if (!requirements.includes(units)) {
+    if (!requirements.includes(targetValue)) {
       return false;
     }
 
@@ -311,62 +404,61 @@ export class MixExampleGenerator {
 
     if (isAddition) {
       // +k = +10 - friend
-      // Нужно уметь вычесть friend из единиц
-      return this._canMinusDirect(units, friend);
+      // Нужно уметь вычесть friend из целевого разряда
+      return this._canMinusDirect(targetValue, friend);
     } else {
       // -k = -10 + friend
-      // Нужно уметь прибавить friend к единицам
-      return this._canPlusDirect(units, friend);
+      // Нужно уметь прибавить friend к целевому разряду
+      return this._canPlusDirect(targetValue, friend);
     }
   }
 
-  // ========== СЕКЦИЯ 5: ПОДГОТОВКА К МИКС (ТОЛЬКО "ПРОСТО") ==========
+  // ========== СЕКЦИЯ 6: ПОДГОТОВКА К МИКС (ТОЛЬКО "ПРОСТО") ==========
 
   /**
-   * Найти путь от текущего состояния единиц к целевому используя ТОЛЬКО "Просто" шаги
+   * Найти путь от текущего состояния целевого разряда к требуемому используя ТОЛЬКО "Просто" шаги
    *
    * ВАЖНО: Шаги подготовки могут быть ЛЮБОГО знака (+ и -)
    *
-   * @param {number} currentUnits - текущее значение единиц (0-9)
-   * @param {number} targetUnits - целевое значение единиц (0-9)
-   * @param {number} currentTens - текущее значение десятков (0-9)
-   * @returns {number[]|null} - массив шагов для единиц или null если невозможно
+   * @param {number} currentValue - текущее значение целевого разряда (0-9)
+   * @param {number} targetValue - целевое значение целевого разряда (0-9)
+   * @returns {number[]|null} - массив шагов для целевого разряда или null если невозможно
    */
-  _findProstoPath(currentUnits, targetUnits, currentTens) {
-    if (currentUnits === targetUnits) {
+  _findProstoPath(currentValue, targetValue) {
+    if (currentValue === targetValue) {
       return []; // уже в целевом состоянии
     }
 
     const maxAttempts = 20;
     const path = [];
-    let units = currentUnits;
+    let value = currentValue;
     let attempts = 0;
 
-    while (units !== targetUnits && attempts < maxAttempts) {
+    while (value !== targetValue && attempts < maxAttempts) {
       attempts++;
 
-      const delta = targetUnits - units;
+      const delta = targetValue - value;
       const isUp = delta > 0;
 
       // Пробуем найти ПРЯМОЙ "Просто" шаг
       let found = false;
 
       if (isUp) {
-        // Нужно увеличить единицы
+        // Нужно увеличить значение
         for (let step = Math.min(9, delta); step >= 1; step--) {
-          if (this._canPlusDirect(units, step) && units + step <= 9) {
+          if (this._canPlusDirect(value, step) && value + step <= 9) {
             path.push(step);
-            units += step;
+            value += step;
             found = true;
             break;
           }
         }
       } else {
-        // Нужно уменьшить единицы
+        // Нужно уменьшить значение
         for (let step = Math.min(9, Math.abs(delta)); step >= 1; step--) {
-          if (this._canMinusDirect(units, step) && units - step >= 0) {
+          if (this._canMinusDirect(value, step) && value - step >= 0) {
             path.push(-step);
-            units -= step;
+            value -= step;
             found = true;
             break;
           }
@@ -375,14 +467,14 @@ export class MixExampleGenerator {
 
       if (!found) {
         // Прямой путь не найден - пробуем обходной через 0 или 9
-        if (isUp && units < 5) {
+        if (isUp && value < 5) {
           // Попробуем через 0 → 5 → target
-          if (units > 0) {
+          if (value > 0) {
             // Сначала вниз к 0
-            for (let step = units; step >= 1; step--) {
-              if (this._canMinusDirect(units, step)) {
+            for (let step = value; step >= 1; step--) {
+              if (this._canMinusDirect(value, step)) {
                 path.push(-step);
-                units -= step;
+                value -= step;
                 found = true;
                 break;
               }
@@ -391,19 +483,19 @@ export class MixExampleGenerator {
             // Потом вверх через 5
             if (this._canPlusDirect(0, 5)) {
               path.push(5);
-              units = 5;
+              value = 5;
               found = true;
             }
           }
-        } else if (!isUp && units >= 5) {
+        } else if (!isUp && value >= 5) {
           // Попробуем через 9 → 5 → target
-          if (units < 9) {
+          if (value < 9) {
             // Сначала вверх к 9
-            const toNine = 9 - units;
+            const toNine = 9 - value;
             for (let step = toNine; step >= 1; step--) {
-              if (this._canPlusDirect(units, step)) {
+              if (this._canPlusDirect(value, step)) {
                 path.push(step);
-                units += step;
+                value += step;
                 found = true;
                 break;
               }
@@ -412,7 +504,7 @@ export class MixExampleGenerator {
             // Потом вниз через 5
             if (this._canMinusDirect(9, 4)) {
               path.push(-4);
-              units = 5;
+              value = 5;
               found = true;
             }
           }
@@ -425,34 +517,33 @@ export class MixExampleGenerator {
       }
     }
 
-    if (units !== targetUnits) {
+    if (value !== targetValue) {
       return null; // не достигли цели
     }
 
     return path;
   }
 
-  // ========== СЕКЦИЯ 6: ГЕНЕРАЦИЯ PROSTO ШАГОВ ==========
+  // ========== СЕКЦИЯ 7: ГЕНЕРАЦИЯ PROSTO ШАГОВ ==========
 
   /**
    * Сгенерировать допустимые PROSTO действия для текущего состояния
    *
-   * @param {object} state - текущее состояние {units, tens}
+   * @param {number[]} states - текущее состояние
    * @param {boolean} isFirst - это первое действие в цепочке?
-   * @param {number[]} lastSteps - последние N шагов для избежания повторов
+   * @param {number[]} lastActions - последние N действий для избежания повторов
    * @returns {number[]} - массив допустимых действий
    */
-  _getAvailableProstoActions(state, isFirst = false, lastSteps = []) {
-    const { units, tens } = state;
-    const value = tens * 10 + units;
+  _getAvailableProstoActions(states, isFirst = false, lastActions = []) {
+    const value = this._stateToNumber(states);
     const actions = [];
 
     // Функция проверки повторов
     const isRepeat = (action) => {
       const window = this.config.avoidRepeatWindow;
-      if (lastSteps.length === 0 || window === 0) return false;
+      if (lastActions.length === 0 || window === 0) return false;
 
-      const recentSteps = lastSteps.slice(-window);
+      const recentSteps = lastActions.slice(-window);
 
       // Не повторяем точно такое же действие
       if (recentSteps.includes(action)) return true;
@@ -468,13 +559,16 @@ export class MixExampleGenerator {
       if (isFirst && d <= 0) continue; // первое действие должно быть положительным
 
       const newValue = value + d;
-      if (newValue > 99) continue; // выход за диапазон
+      if (newValue > this.maxValue) continue; // выход за диапазон
 
-      const newUnits = newValue % 10;
-      const newTens = Math.floor(newValue / 10);
+      const newStates = this._numberToState(newValue);
 
       // Проверяем: можно ли сделать это действие "Просто"
-      if (this._canPlusDirect(units, d) && units + d === newUnits && tens === newTens) {
+      // Для простоты проверяем только изменение в целевом разряде
+      const targetValue = states[this.targetPosition] || 0;
+      const newTargetValue = newStates[this.targetPosition] || 0;
+
+      if (this._canPlusDirect(targetValue, d) && targetValue + d === newTargetValue) {
         if (!isRepeat(d)) {
           actions.push(d);
         }
@@ -487,11 +581,13 @@ export class MixExampleGenerator {
         const newValue = value - d;
         if (newValue < 0) continue; // уход в минус
 
-        const newUnits = newValue % 10;
-        const newTens = Math.floor(newValue / 10);
+        const newStates = this._numberToState(newValue);
 
         // Проверяем: можно ли сделать это действие "Просто"
-        if (this._canMinusDirect(units, d) && units - d === newUnits && tens === newTens) {
+        const targetValue = states[this.targetPosition] || 0;
+        const newTargetValue = newStates[this.targetPosition] || 0;
+
+        if (this._canMinusDirect(targetValue, d) && targetValue - d === newTargetValue) {
           if (!isRepeat(-d)) {
             actions.push(-d);
           }
@@ -502,56 +598,78 @@ export class MixExampleGenerator {
     return actions;
   }
 
-  // ========== СЕКЦИЯ 7: ПРИМЕНЕНИЕ ДЕЙСТВИЯ ==========
+  // ========== СЕКЦИЯ 8: ПРИМЕНЕНИЕ ДЕЙСТВИЯ ==========
 
   /**
-   * Применить действие к состоянию
+   * Применить простое действие к состоянию
    *
-   * @param {object} state - текущее состояние {units, tens}
+   * @param {number[]} states - текущее состояние
    * @param {number} action - действие (может быть отрицательным)
-   * @returns {object} - новое состояние {units, tens}
+   * @returns {number[]} - новое состояние
    */
-  _applyAction(state, action) {
-    const { units, tens } = state;
-    const value = tens * 10 + units;
+  _applyAction(states, action) {
+    const value = this._stateToNumber(states);
     const newValue = value + action;
+    return this._numberToState(newValue);
+  }
+
+  /**
+   * Применить МИКС действие к состоянию
+   *
+   * Для многозначных: действие = digit × 10^targetPosition + (нижние разряды)
+   * Нижние разряды выбираются случайно через соответствующие правила
+   *
+   * @param {number[]} states - текущее состояние
+   * @param {number} digit - цифра МИКС (6-9)
+   * @param {boolean} isAddition - сложение или вычитание
+   * @returns {object} - {newStates, fullAction, lowerDigits}
+   */
+  _applyMixAction(states, digit, isAddition) {
+    const friend = 10 - digit;
+    const newStates = this._copyState(states);
+
+    // Применяем МИКС к целевому разряду
+    if (isAddition) {
+      // +k = (+5 - brother) + (+10 - friend)
+      // Итоговый эффект: targetPosition -= friend, (targetPosition+1) += 1
+      newStates[this.targetPosition] -= friend;
+      newStates[this.targetPosition + 1] = (newStates[this.targetPosition + 1] || 0) + 1;
+    } else {
+      // -k = (-5 + brother) + (-10 + friend)
+      // Итоговый эффект: targetPosition += friend, (targetPosition+1) -= 1
+      newStates[this.targetPosition] += friend;
+      newStates[this.targetPosition + 1] = (newStates[this.targetPosition + 1] || 0) - 1;
+    }
+
+    // Для многозначных: выбираем случайные значения для нижних разрядов (0..targetPosition-1)
+    // Используем правило: Friends для позиции targetPosition-1 если цифра 6-9, Brothers для позиции targetPosition-2 и ниже
+    const lowerDigits = [];
+    for (let pos = this.targetPosition - 1; pos >= 0; pos--) {
+      // Для простоты: выбираем случайные допустимые значения 0-9
+      // TODO: в будущем можно добавить проверку Friends/Brothers
+      const randomDigit = Math.floor(Math.random() * 10);
+      lowerDigits.push(randomDigit);
+    }
+
+    // Полное действие: digit × 10^targetPosition + нижние разряды
+    let fullAction = digit * Math.pow(10, this.targetPosition);
+    for (let i = 0; i < lowerDigits.length; i++) {
+      const pos = this.targetPosition - 1 - i;
+      fullAction += lowerDigits[i] * Math.pow(10, pos);
+    }
+
+    if (!isAddition) {
+      fullAction = -fullAction;
+    }
 
     return {
-      units: newValue % 10,
-      tens: Math.floor(newValue / 10)
+      newStates,
+      fullAction,
+      lowerDigits
     };
   }
 
-  /**
-   * Применить МИКС действие к состоянию с формулой
-   *
-   * @param {object} state - текущее состояние {units, tens}
-   * @param {number} digit - цифра МИКС (6-9)
-   * @param {boolean} isAddition - сложение или вычитание
-   * @returns {object} - новое состояние {units, tens}
-   */
-  _applyMixAction(state, digit, isAddition) {
-    const { units, tens } = state;
-    const friend = 10 - digit;
-
-    if (isAddition) {
-      // +k = (+5 - brother) + (+10 - friend)
-      // Итоговый эффект: units -= friend, tens += 1
-      return {
-        units: units - friend,
-        tens: tens + 1
-      };
-    } else {
-      // -k = (-5 + brother) + (-10 + friend)
-      // Итоговый эффект: units += friend, tens -= 1
-      return {
-        units: units + friend,
-        tens: tens - 1
-      };
-    }
-  }
-
-  // ========== СЕКЦИЯ 8: ГЛАВНЫЙ МЕТОД ГЕНЕРАЦИИ ==========
+  // ========== СЕКЦИЯ 9: ГЛАВНЫЙ МЕТОД ГЕНЕРАЦИИ ==========
 
   /**
    * Сгенерировать пример с ТОЧНЫМ количеством шагов
@@ -595,7 +713,7 @@ export class MixExampleGenerator {
     const minMixCount = this.config.minMixCount;
 
     const steps = [];
-    let state = { units: 0, tens: 0 };
+    let states = Array(this.stateDigitCount).fill(0);
     let mixCount = 0;
     let attempts = 0;
     const maxAttempts = targetSteps * 50;
@@ -613,7 +731,6 @@ export class MixExampleGenerator {
       const needMoreMix = mixCount < minMixCount;
 
       // ВАЖНО: Не пытаемся делать МИКС на первых 1-2 шагах для разнообразия
-      // Это позволит начинать с разных простых действий (+5+3, +6+2, +4+4 и т.д.)
       const minStepsBeforeMix = Math.min(2, Math.floor(targetSteps / 3));
       const canTryMixNow = steps.length >= minStepsBeforeMix;
 
@@ -623,21 +740,21 @@ export class MixExampleGenerator {
 
       if (tryMix) {
         // Попытка сгенерировать МИКС действие
-        const mixResult = this._tryGenerateMixAction(state, isFirst, lastActions);
+        const mixResult = this._tryGenerateMixAction(states, isFirst, lastActions);
 
         if (mixResult) {
           // Успешно сгенерировали МИКС
           // Добавляем подготовительные шаги
           for (const prepStep of mixResult.preparationSteps) {
             steps.push(prepStep);
-            state = this._applyAction(state, prepStep.action);
+            states = this._applyAction(states, prepStep.action);
             lastActions.push(prepStep.action);
           }
 
           // Добавляем МИКС шаг
           steps.push(mixResult.mixStep);
-          state = mixResult.newState;
-          lastActions.push(mixResult.mixStep.displayOp === '+' ? mixResult.mixStep.displayVal : -mixResult.mixStep.displayVal);
+          states = mixResult.newStates;
+          lastActions.push(mixResult.mixStep.action);
           mixCount++;
 
           continue;
@@ -645,23 +762,23 @@ export class MixExampleGenerator {
       }
 
       // Генерируем простое действие
-      const prostoActions = this._getAvailableProstoActions(state, isFirst, lastActions);
+      const prostoActions = this._getAvailableProstoActions(states, isFirst, lastActions);
 
       if (prostoActions.length === 0) {
         // Нет доступных действий
         if (steps.length >= 3 && mixCount >= minMixCount) {
           break; // достаточно шагов
         }
-        continue;
+        return null;
       }
 
       // Выбираем случайное действие
       const action = prostoActions[Math.floor(Math.random() * prostoActions.length)];
-      const newState = this._applyAction(state, action);
+      const newStates = this._applyAction(states, action);
 
       // Проверяем границы
-      const newValue = newState.tens * 10 + newState.units;
-      if (newValue < 0 || newValue > 99) {
+      const newValue = this._stateToNumber(newStates);
+      if (newValue < 0 || newValue > this.maxValue) {
         continue; // выход за диапазон
       }
 
@@ -671,12 +788,12 @@ export class MixExampleGenerator {
         type: 'PROSTO',
         action: action,
         meta: {
-          stateBefore: { ...state },
-          stateAfter: { ...newState }
+          statesBefore: this._copyState(states),
+          statesAfter: this._copyState(newStates)
         }
       });
 
-      state = newState;
+      states = newStates;
       lastActions.push(action);
     }
 
@@ -690,7 +807,7 @@ export class MixExampleGenerator {
       return null;
     }
 
-    const finalValue = state.tens * 10 + state.units;
+    const finalValue = this._stateToNumber(states);
 
     // Подсчет статистики
     const stats = {
@@ -715,7 +832,7 @@ export class MixExampleGenerator {
   /**
    * Попытка сгенерировать МИКС действие
    */
-  _tryGenerateMixAction(state, isFirst, lastActions) {
+  _tryGenerateMixAction(states, isFirst, lastActions) {
     const { selectedMixDigits, onlyAddition, onlySubtraction } = this.config;
 
     // Выбираем случайную цифру МИКС (избегая повторов)
@@ -726,7 +843,8 @@ export class MixExampleGenerator {
       const recentSteps = lastActions.slice(-window);
 
       // Не повторяем ту же цифру
-      if (recentSteps.includes(digit) || recentSteps.includes(-digit)) {
+      const digitAction = digit * Math.pow(10, this.targetPosition);
+      if (recentSteps.some(a => Math.abs(a) === digitAction)) {
         return false;
       }
 
@@ -743,7 +861,7 @@ export class MixExampleGenerator {
 
     // Пробуем разные цифры, пока не найдём подходящую
     for (const digit of shuffledDigits) {
-      const result = this._tryGenerateMixForDigit(state, digit, isFirst, onlyAddition, onlySubtraction);
+      const result = this._tryGenerateMixForDigit(states, digit, isFirst, onlyAddition, onlySubtraction);
       if (result) {
         return result;
       }
@@ -756,8 +874,7 @@ export class MixExampleGenerator {
   /**
    * Попытка сгенерировать МИКС для конкретной цифры
    */
-  _tryGenerateMixForDigit(state, digit, isFirst, onlyAddition, onlySubtraction) {
-
+  _tryGenerateMixForDigit(states, digit, isFirst, onlyAddition, onlySubtraction) {
     // Определяем возможные знаки для МИКС
     const possibleSigns = [];
 
@@ -778,7 +895,7 @@ export class MixExampleGenerator {
 
     // Пробуем разные знаки
     for (const isAddition of shuffledSigns) {
-      const result = this._tryGenerateMixForDigitAndSign(state, digit, isAddition);
+      const result = this._tryGenerateMixForDigitAndSign(states, digit, isAddition);
       if (result) {
         return result;
       }
@@ -791,12 +908,11 @@ export class MixExampleGenerator {
   /**
    * Попытка сгенерировать МИКС для конкретной цифры и знака
    */
-  _tryGenerateMixForDigitAndSign(state, digit, isAddition) {
-
+  _tryGenerateMixForDigitAndSign(states, digit, isAddition) {
     // Проверяем: можно ли выполнить МИКС с текущим состоянием?
-    if (this._canApplyMix(state, digit, isAddition)) {
+    if (this._canApplyMix(states, digit, isAddition)) {
       // Можем выполнить МИКС сразу - НЕ нужна подготовка
-      const newState = this._applyMixAction(state, digit, isAddition);
+      const { newStates, fullAction, lowerDigits } = this._applyMixAction(states, digit, isAddition);
       const friend = 10 - digit;
       const brother = 5 - friend;
 
@@ -804,70 +920,77 @@ export class MixExampleGenerator {
         preparationSteps: [],
         mixStep: {
           displayOp: isAddition ? '+' : '-',
-          displayVal: digit,
+          displayVal: Math.abs(fullAction),
           type: 'MIX',
-          action: isAddition ? digit : -digit,
+          action: fullAction,
           meta: {
-            stateBefore: { ...state },
-            stateAfter: { ...newState },
+            statesBefore: this._copyState(states),
+            statesAfter: this._copyState(newStates),
+            mixDigit: digit,
+            lowerDigits: lowerDigits,
             formula: isAddition
               ? [
-                  { step: 'units', op: '+', val: 5 },
-                  { step: 'units', op: '-', val: brother },
-                  { step: 'tens', op: '+', val: 1 },
-                  { step: 'units', op: '-', val: friend }
+                  { step: this._getPositionName(this.targetPosition), op: '+', val: 5 },
+                  { step: this._getPositionName(this.targetPosition), op: '-', val: brother },
+                  { step: this._getPositionName(this.targetPosition + 1), op: '+', val: 1 },
+                  { step: this._getPositionName(this.targetPosition), op: '-', val: friend }
                 ]
               : [
-                  { step: 'units', op: '-', val: 5 },
-                  { step: 'units', op: '+', val: brother },
-                  { step: 'tens', op: '-', val: 1 },
-                  { step: 'units', op: '+', val: friend }
+                  { step: this._getPositionName(this.targetPosition), op: '-', val: 5 },
+                  { step: this._getPositionName(this.targetPosition), op: '+', val: brother },
+                  { step: this._getPositionName(this.targetPosition + 1), op: '-', val: 1 },
+                  { step: this._getPositionName(this.targetPosition), op: '+', val: friend }
                 ]
           }
         },
-        newState: newState
+        newStates: newStates
       };
     }
 
-    // Нужна подготовка - ищем путь к целевому состоянию единиц
-    const targetUnits = isAddition
-      ? this._getAdditionRequirements(digit)[0]
-      : this._getSubtractionRequirements(digit)[0];
+    // Нужна подготовка - ищем путь к целевому состоянию
+    const requirements = isAddition
+      ? this._getAdditionRequirements(digit)
+      : this._getSubtractionRequirements(digit);
 
-    if (!targetUnits) {
+    if (requirements.length === 0) {
       return null;
     }
 
+    const targetValue = requirements[0];
+    const currentValue = states[this.targetPosition] || 0;
+
     // Ищем путь подготовки
-    const preparationPath = this._findProstoPath(state.units, targetUnits, state.tens);
+    const preparationPath = this._findProstoPath(currentValue, targetValue);
 
     if (!preparationPath) {
       return null; // не можем подготовить
     }
 
-    // Проверяем ограничения на десятки ПОСЛЕ подготовки
-    let prepState = { ...state };
+    // Проверяем ограничения на следующий разряд ПОСЛЕ подготовки
+    let prepStates = this._copyState(states);
     for (const step of preparationPath) {
-      prepState = this._applyAction(prepState, step);
+      const prepAction = step * Math.pow(10, this.targetPosition);
+      prepStates = this._applyAction(prepStates, prepAction);
     }
 
-    if (!this._canApplyMixToTens(prepState.tens, isAddition)) {
-      return null; // десятки вышли за допустимые границы
+    const nextValue = prepStates[this.targetPosition + 1] || 0;
+    if (!this._canApplyMixToNextDigit(nextValue, isAddition)) {
+      return null; // следующий разряд вышел за допустимые границы
     }
 
     // Формируем подготовительные шаги
-    const preparationSteps = preparationPath.map(action => ({
-      displayOp: action >= 0 ? '+' : '-',
-      displayVal: Math.abs(action),
+    const preparationSteps = preparationPath.map(step => ({
+      displayOp: step >= 0 ? '+' : '-',
+      displayVal: Math.abs(step) * Math.pow(10, this.targetPosition),
       type: 'PROSTO',
-      action: action,
+      action: step * Math.pow(10, this.targetPosition),
       meta: {
         purpose: 'preparation_for_mix'
       }
     }));
 
     // Применяем МИКС
-    const newState = this._applyMixAction(prepState, digit, isAddition);
+    const { newStates, fullAction, lowerDigits } = this._applyMixAction(prepStates, digit, isAddition);
     const friend = 10 - digit;
     const brother = 5 - friend;
 
@@ -875,32 +998,34 @@ export class MixExampleGenerator {
       preparationSteps: preparationSteps,
       mixStep: {
         displayOp: isAddition ? '+' : '-',
-        displayVal: digit,
+        displayVal: Math.abs(fullAction),
         type: 'MIX',
-        action: isAddition ? digit : -digit,
+        action: fullAction,
         meta: {
-          stateBefore: { ...prepState },
-          stateAfter: { ...newState },
+          statesBefore: this._copyState(prepStates),
+          statesAfter: this._copyState(newStates),
+          mixDigit: digit,
+          lowerDigits: lowerDigits,
           formula: isAddition
             ? [
-                { step: 'units', op: '+', val: 5 },
-                { step: 'units', op: '-', val: brother },
-                { step: 'tens', op: '+', val: 1 },
-                { step: 'units', op: '-', val: friend }
+                { step: this._getPositionName(this.targetPosition), op: '+', val: 5 },
+                { step: this._getPositionName(this.targetPosition), op: '-', val: brother },
+                { step: this._getPositionName(this.targetPosition + 1), op: '+', val: 1 },
+                { step: this._getPositionName(this.targetPosition), op: '-', val: friend }
               ]
             : [
-                { step: 'units', op: '-', val: 5 },
-                { step: 'units', op: '+', val: brother },
-                { step: 'tens', op: '-', val: 1 },
-                { step: 'units', op: '+', val: friend }
+                { step: this._getPositionName(this.targetPosition), op: '-', val: 5 },
+                { step: this._getPositionName(this.targetPosition), op: '+', val: brother },
+                { step: this._getPositionName(this.targetPosition + 1), op: '-', val: 1 },
+                { step: this._getPositionName(this.targetPosition), op: '+', val: friend }
               ]
         }
       },
-      newState: newState
+      newStates: newStates
     };
   }
 
-  // ========== СЕКЦИЯ 9: ВАЛИДАЦИЯ ==========
+  // ========== СЕКЦИЯ 10: ВАЛИДАЦИЯ ==========
 
   /**
    * Валидация примера
@@ -919,22 +1044,22 @@ export class MixExampleGenerator {
     }
 
     // 3. Валидность всех промежуточных состояний
-    let state = { units: 0, tens: 0 };
+    let states = Array(this.stateDigitCount).fill(0);
     for (const step of steps) {
       if (step.type === 'MIX') {
-        state = step.meta.stateAfter;
+        states = step.meta.statesAfter;
       } else {
-        state = this._applyAction(state, step.action);
+        states = this._applyAction(states, step.action);
       }
 
-      const value = state.tens * 10 + state.units;
-      if (value < 0 || value > 99) {
+      const value = this._stateToNumber(states);
+      if (value < 0 || value > this.maxValue) {
         return false; // выход за диапазон
       }
     }
 
     // 4. Корректность финального ответа
-    const computedFinal = state.tens * 10 + state.units;
+    const computedFinal = this._stateToNumber(states);
     if (computedFinal !== finalValue) {
       return false;
     }
@@ -942,7 +1067,7 @@ export class MixExampleGenerator {
     return true;
   }
 
-  // ========== СЕКЦИЯ 10: FALLBACK ==========
+  // ========== СЕКЦИЯ 11: FALLBACK ==========
 
   /**
    * Упрощенный fallback-пример если генерация не удалась
@@ -950,7 +1075,7 @@ export class MixExampleGenerator {
   _fallbackExample() {
     const targetSteps = this.config.chainLength;
     const steps = [];
-    let state = { units: 0, tens: 0 };
+    let states = Array(this.stateDigitCount).fill(0);
     let mixCount = 0;
 
     this._log(`⚠️ Используем fallback генерацию для ${targetSteps} шагов`);
@@ -958,48 +1083,42 @@ export class MixExampleGenerator {
     // Пытаемся добавить хотя бы 1 МИКС
     const digit = this.config.selectedMixDigits[0] || 6;
 
-    // Подготовка к МИКС: доводим единицы до 8 для +6
-    while (state.units < 8 && steps.length < targetSteps - 1) {
-      const step = Math.min(3, 8 - state.units);
-      if (this._canPlusDirect(state.units, step)) {
-        steps.push({
-          displayOp: '+',
-          displayVal: step,
-          type: 'PROSTO',
-          action: step,
-          meta: {}
-        });
-        state = this._applyAction(state, step);
-      } else {
-        break;
-      }
-    }
+    // Подготовка к МИКС: доводим целевой разряд до 8 для +6
+    const prepAction = 8 * Math.pow(10, this.targetPosition);
+    states = this._applyAction(states, prepAction);
+    steps.push({
+      displayOp: '+',
+      displayVal: prepAction,
+      type: 'PROSTO',
+      action: prepAction,
+      meta: {}
+    });
 
     // Добавляем МИКС
-    if (state.units === 8 && state.tens <= 8 && steps.length < targetSteps) {
-      const newState = this._applyMixAction(state, digit, true);
+    if (states[this.targetPosition] === 8 && states[this.targetPosition + 1] <= 8 && steps.length < targetSteps) {
+      const { newStates, fullAction } = this._applyMixAction(states, digit, true);
       steps.push({
         displayOp: '+',
-        displayVal: digit,
+        displayVal: Math.abs(fullAction),
         type: 'MIX',
-        action: digit,
+        action: fullAction,
         meta: {
-          stateBefore: { ...state },
-          stateAfter: { ...newState },
+          statesBefore: this._copyState(states),
+          statesAfter: this._copyState(newStates),
           formula: []
         }
       });
-      state = newState;
+      states = newStates;
       mixCount++;
     }
 
     // Заполняем остальные шаги простыми действиями
     while (steps.length < targetSteps) {
       const action = Math.random() < 0.5 ? 1 : -1;
-      const newState = this._applyAction(state, action);
-      const newValue = newState.tens * 10 + newState.units;
+      const newStates = this._applyAction(states, action);
+      const newValue = this._stateToNumber(newStates);
 
-      if (newValue >= 0 && newValue <= 99) {
+      if (newValue >= 0 && newValue <= this.maxValue) {
         steps.push({
           displayOp: action >= 0 ? '+' : '-',
           displayVal: Math.abs(action),
@@ -1007,14 +1126,14 @@ export class MixExampleGenerator {
           action: action,
           meta: {}
         });
-        state = newState;
+        states = newStates;
       } else {
         // Если не можем - просто останавливаемся
         break;
       }
     }
 
-    const finalValue = state.tens * 10 + state.units;
+    const finalValue = this._stateToNumber(states);
 
     return {
       startValue: 0,
@@ -1029,7 +1148,7 @@ export class MixExampleGenerator {
     };
   }
 
-  // ========== СЕКЦИЯ 11: ФОРМАТИРОВАНИЕ ДЛЯ ТРЕНАЖЕРА ==========
+  // ========== СЕКЦИЯ 12: ФОРМАТИРОВАНИЕ ДЛЯ ТРЕНАЖЕРА ==========
 
   /**
    * Преобразовать внутренний формат в формат тренажера
@@ -1046,7 +1165,7 @@ export class MixExampleGenerator {
         formattedSteps.push({
           step: `${step.displayOp}${step.displayVal}`,
           isMix: true,
-          mixDigit: step.displayVal,
+          mixDigit: step.meta.mixDigit || step.displayVal,
           formula: step.meta.formula || []
         });
       } else {
