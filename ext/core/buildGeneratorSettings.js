@@ -70,10 +70,12 @@ export function buildGeneratorSettingsFromSettings(st = {}) {
         onlySubtraction: st.blocks?.friends?.onlySubtraction ?? false
       },
 
-      // === МИКС (комбинация правил) - будущее ===
+      // === МИКС (комбинация правил - Братья + Друзья) ===
       mix: {
         active: st.blocks?.mix?.active ?? false,
-        digits: st.blocks?.mix?.digits ?? []
+        digits: st.blocks?.mix?.digits ?? [],
+        onlyAddition: st.blocks?.mix?.onlyAddition ?? false,
+        onlySubtraction: st.blocks?.mix?.onlySubtraction ?? false
       }
     },
 

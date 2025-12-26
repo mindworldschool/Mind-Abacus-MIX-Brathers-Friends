@@ -24,6 +24,7 @@ import { UnifiedSimpleRule } from "./rules/UnifiedSimpleRule.js";
 import { ExampleGenerator } from "./ExampleGenerator.js";
 import { BrothersRule } from "./rules/BrothersRule.js";
 import { FriendsExampleGenerator } from "./FriendsExampleGenerator.js";
+import { MixExampleGenerator } from "./MixExampleGenerator.js";
 import { MultiDigitGenerator } from "./MultiDigitGenerator.js";
 
 /**
@@ -162,8 +163,12 @@ if (!settings.silent)     console.log("🔍 [generator] selectedDigits (для �
         })
       : [];
     
+    // 🆕 МИКС: цифры от 6 до 9 (Братья + Друзья)
     const mixDigits = Array.isArray(blocks?.mix?.digits)
-      ? blocks.mix.digits.filter(d => d != null && d !== "")
+      ? blocks.mix.digits.filter(d => {
+          const parsed = parseInt(d, 10);
+          return !isNaN(parsed) && parsed >= 6 && parsed <= 9;
+        })
       : [];
 
     const brothersActive = brothersDigits.length > 0;
@@ -248,13 +253,13 @@ if (!settings.silent)     console.log(
     // 8. Создаём правило.
     //
     // Логика выбора (ПРИОРИТЕТ):
-    // 1. Если активен блок "Друзья" → FriendsRule
-    // 2. Если активен блок "Братья" → BrothersRule
-    // 3. Иначе → UnifiedSimpleRule (Просто)
+    // 1. Если активен блок "МИКС" → MixExampleGenerator
+    // 2. Если активен блок "Друзья" → FriendsExampleGenerator
+    // 3. Если активен блок "Братья" → BrothersRule
+    // 4. Иначе → UnifiedSimpleRule (Просто)
     //
-    // ВАЖНО: По ТЗ нельзя смешивать "Братья" и "Друзья" в одном примере!
-    // Если оба активны — приоритет "Друзьям" (более сложное правило).
-    // В будущем блок "Микс" будет обрабатывать комбинации.
+    // ВАЖНО: МИКС имеет наивысший приоритет, т.к. это самое сложное правило.
+    // МИКС комбинирует "Братья" (через 5) и "Друзья" (через 10) для цифр 6,7,8,9.
     //
     let rule;
     let RuleClass;
@@ -262,7 +267,42 @@ if (!settings.silent)     console.log(
 
     // === ОПРЕДЕЛЯЕМ БАЗОВЫЙ КЛАСС ПРАВИЛА ===
 
-    if (friendsActive === true) {
+    if (mixActive === true) {
+      // 🆕 МИКС — используем специализированный генератор
+if (!settings.silent)       console.log("🔀 [generator] Специализированный генератор: МИКС");
+if (!settings.silent)       console.log("   📌 Выбранные цифры МИКС:", mixDigits);
+if (!settings.silent)       console.log("   📌 Только сложение (МИКС):", blocks?.mix?.onlyAddition);
+if (!settings.silent)       console.log("   📌 Только вычитание (МИКС):", blocks?.mix?.onlySubtraction);
+
+      // Преобразуем строковые цифры в числа
+      const selectedMixDigits = mixDigits
+        .map(d => parseInt(d, 10))
+        .filter(n => n >= 6 && n <= 9);
+
+      // Создаём специализированный генератор МИКС
+      const mixGenerator = new MixExampleGenerator({
+        selectedMixDigits: selectedMixDigits.length > 0 ? selectedMixDigits : [6],
+        chainLength: maxSteps, // точное количество шагов
+        minMixCount: 1, // минимум МИКС-действий (дефолт)
+        mixTryRate: 0.4, // 40% вероятность после минимума
+        avoidRepeatWindow: 3, // окно для избежания повторов
+        onlyAddition: blocks?.mix?.onlyAddition ?? false,
+        onlySubtraction: blocks?.mix?.onlySubtraction ?? false,
+        silent: settings.silent || false
+      });
+
+      // Генерируем пример
+      const rawExample = mixGenerator.generate();
+      const formatted = mixGenerator.toTrainerFormat(rawExample);
+
+if (!settings.silent)       console.log(
+        "✅ [generator] МИКС пример готов:",
+        JSON.stringify(formatted, null, 2)
+      );
+
+      return formatted;
+
+    } else if (friendsActive === true) {
       // 🆕 ДРУЗЬЯ — используем специализированный генератор
 if (!settings.silent)       console.log("🤝 [generator] Специализированный генератор: ДРУЗЬЯ");
 if (!settings.silent)       console.log("   📌 Выбранные друзья:", friendsDigits);
