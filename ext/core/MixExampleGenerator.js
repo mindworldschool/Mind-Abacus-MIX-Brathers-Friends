@@ -611,7 +611,15 @@ export class MixExampleGenerator {
 
       // Решаем: пытаться ли сгенерировать МИКС действие
       const needMoreMix = mixCount < minMixCount;
-      const tryMix = needMoreMix || (stepsRemaining >= 2 && Math.random() < this.config.mixTryRate);
+
+      // ВАЖНО: Не пытаемся делать МИКС на первых 1-2 шагах для разнообразия
+      // Это позволит начинать с разных простых действий (+5+3, +6+2, +4+4 и т.д.)
+      const minStepsBeforeMix = Math.min(2, Math.floor(targetSteps / 3));
+      const canTryMixNow = steps.length >= minStepsBeforeMix;
+
+      // Даже если нужно больше МИКС, используем вероятность (70%) вместо 100%
+      const mixProbability = needMoreMix ? 0.7 : this.config.mixTryRate;
+      const tryMix = canTryMixNow && (needMoreMix || stepsRemaining >= 2) && Math.random() < mixProbability;
 
       if (tryMix) {
         // Попытка сгенерировать МИКС действие
@@ -730,7 +738,25 @@ export class MixExampleGenerator {
       return null;
     }
 
-    const digit = availableDigits[Math.floor(Math.random() * availableDigits.length)];
+    // Перемешиваем доступные цифры для равномерного распределения
+    const shuffledDigits = [...availableDigits].sort(() => Math.random() - 0.5);
+
+    // Пробуем разные цифры, пока не найдём подходящую
+    for (const digit of shuffledDigits) {
+      const result = this._tryGenerateMixForDigit(state, digit, isFirst, onlyAddition, onlySubtraction);
+      if (result) {
+        return result;
+      }
+    }
+
+    // Ни одна цифра не подошла
+    return null;
+  }
+
+  /**
+   * Попытка сгенерировать МИКС для конкретной цифры
+   */
+  _tryGenerateMixForDigit(state, digit, isFirst, onlyAddition, onlySubtraction) {
 
     // Определяем возможные знаки для МИКС
     const possibleSigns = [];
@@ -747,8 +773,25 @@ export class MixExampleGenerator {
       return null;
     }
 
-    // Пробуем случайный знак
-    const isAddition = possibleSigns[Math.floor(Math.random() * possibleSigns.length)];
+    // Перемешиваем знаки для равномерного распределения
+    const shuffledSigns = [...possibleSigns].sort(() => Math.random() - 0.5);
+
+    // Пробуем разные знаки
+    for (const isAddition of shuffledSigns) {
+      const result = this._tryGenerateMixForDigitAndSign(state, digit, isAddition);
+      if (result) {
+        return result;
+      }
+    }
+
+    // Не удалось с этой цифрой
+    return null;
+  }
+
+  /**
+   * Попытка сгенерировать МИКС для конкретной цифры и знака
+   */
+  _tryGenerateMixForDigitAndSign(state, digit, isAddition) {
 
     // Проверяем: можно ли выполнить МИКС с текущим состоянием?
     if (this._canApplyMix(state, digit, isAddition)) {
