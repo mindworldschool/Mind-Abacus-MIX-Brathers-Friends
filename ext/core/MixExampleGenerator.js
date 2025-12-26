@@ -554,42 +554,51 @@ export class MixExampleGenerator {
       return false;
     };
 
-    // Сложение (всегда доступно)
-    for (let d = 1; d <= 9; d++) {
-      if (isFirst && d <= 0) continue; // первое действие должно быть положительным
+    // Шаг для изменения целевого разряда
+    // digitCount=1, targetPosition=0: step = 1 (единицы)
+    // digitCount=2, targetPosition=1: step = 10 (десятки)
+    // digitCount=3, targetPosition=2: step = 100 (сотни)
+    const step = Math.pow(10, this.targetPosition);
 
-      const newValue = value + d;
+    const targetValue = states[this.targetPosition] || 0;
+
+    // Сложение (всегда доступно)
+    for (let digit = 1; digit <= 9; digit++) {
+      if (isFirst && digit <= 0) continue; // первое действие должно быть положительным
+
+      // PROSTO действие: изменяем только целевой разряд
+      const action = digit * step;
+      const newValue = value + action;
+
       if (newValue > this.maxValue) continue; // выход за диапазон
 
       const newStates = this._numberToState(newValue);
-
-      // Проверяем: можно ли сделать это действие "Просто"
-      // Для простоты проверяем только изменение в целевом разряде
-      const targetValue = states[this.targetPosition] || 0;
       const newTargetValue = newStates[this.targetPosition] || 0;
 
-      if (this._canPlusDirect(targetValue, d) && targetValue + d === newTargetValue) {
-        if (!isRepeat(d)) {
-          actions.push(d);
+      // Проверяем: можно ли сделать это действие "Просто" в целевом разряде
+      if (this._canPlusDirect(targetValue, digit) && targetValue + digit === newTargetValue) {
+        if (!isRepeat(action)) {
+          actions.push(action);
         }
       }
     }
 
     // Вычитание (если не первое действие)
     if (!isFirst) {
-      for (let d = 1; d <= 9; d++) {
-        const newValue = value - d;
+      for (let digit = 1; digit <= 9; digit++) {
+        // PROSTO действие: изменяем только целевой разряд
+        const action = digit * step;
+        const newValue = value - action;
+
         if (newValue < 0) continue; // уход в минус
 
         const newStates = this._numberToState(newValue);
-
-        // Проверяем: можно ли сделать это действие "Просто"
-        const targetValue = states[this.targetPosition] || 0;
         const newTargetValue = newStates[this.targetPosition] || 0;
 
-        if (this._canMinusDirect(targetValue, d) && targetValue - d === newTargetValue) {
-          if (!isRepeat(-d)) {
-            actions.push(-d);
+        // Проверяем: можно ли сделать это действие "Просто" в целевом разряде
+        if (this._canMinusDirect(targetValue, digit) && targetValue - digit === newTargetValue) {
+          if (!isRepeat(-action)) {
+            actions.push(-action);
           }
         }
       }
@@ -818,7 +827,7 @@ export class MixExampleGenerator {
     };
 
     for (const digit of this.config.selectedMixDigits) {
-      stats.digitDistribution[digit] = steps.filter(s => s.type === 'MIX' && s.displayVal === digit).length;
+      stats.digitDistribution[digit] = steps.filter(s => s.type === 'MIX' && s.meta?.mixDigit === digit).length;
     }
 
     return {
@@ -1113,8 +1122,9 @@ export class MixExampleGenerator {
     }
 
     // Заполняем остальные шаги простыми действиями
+    const step = Math.pow(10, this.targetPosition);
     while (steps.length < targetSteps) {
-      const action = Math.random() < 0.5 ? 1 : -1;
+      const action = Math.random() < 0.5 ? step : -step;
       const newStates = this._applyAction(states, action);
       const newValue = this._stateToNumber(newStates);
 
