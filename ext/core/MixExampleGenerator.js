@@ -562,23 +562,48 @@ export class MixExampleGenerator {
 
     const targetValue = states[this.targetPosition] || 0;
 
+    // Для многозначных: генерируем варианты с разными младшими разрядами
+    // Это избегает доминирования "круглых" чисел (30, 40, 50...)
+    // Генерируем 5 случайных вариантов для каждого digit чтобы не перегружать
+    const generateLowerDigits = () => {
+      if (this.targetPosition === 0) return [0]; // для digitCount=1 нет младших разрядов
+
+      const variants = new Set();
+      variants.add(0); // всегда включаем круглое число
+
+      // Добавляем 4-5 случайных вариантов
+      const maxVariants = Math.min(5, Math.pow(10, this.targetPosition));
+      while (variants.size < maxVariants) {
+        // Генерируем случайное число для младших разрядов (0 до 10^targetPosition - 1)
+        const randomLower = Math.floor(Math.random() * Math.pow(10, this.targetPosition));
+        variants.add(randomLower);
+      }
+
+      return Array.from(variants);
+    };
+
+    const lowerDigitsVariants = generateLowerDigits();
+
     // Сложение (всегда доступно)
     for (let digit = 1; digit <= 9; digit++) {
       if (isFirst && digit <= 0) continue; // первое действие должно быть положительным
 
-      // PROSTO действие: изменяем только целевой разряд
-      const action = digit * step;
-      const newValue = value + action;
+      // Для многозначных: пробуем разные комбинации с младшими разрядами
+      for (const lowerDigit of lowerDigitsVariants) {
+        // PROSTO действие: изменяем целевой разряд + младшие разряды
+        const action = digit * step + lowerDigit;
+        const newValue = value + action;
 
-      if (newValue > this.maxValue) continue; // выход за диапазон
+        if (newValue > this.maxValue) continue; // выход за диапазон
 
-      const newStates = this._numberToState(newValue);
-      const newTargetValue = newStates[this.targetPosition] || 0;
+        const newStates = this._numberToState(newValue);
+        const newTargetValue = newStates[this.targetPosition] || 0;
 
-      // Проверяем: можно ли сделать это действие "Просто" в целевом разряде
-      if (this._canPlusDirect(targetValue, digit) && targetValue + digit === newTargetValue) {
-        if (!isRepeat(action)) {
-          actions.push(action);
+        // Проверяем: можно ли сделать это действие "Просто" в целевом разряде
+        if (this._canPlusDirect(targetValue, digit) && targetValue + digit === newTargetValue) {
+          if (!isRepeat(action)) {
+            actions.push(action);
+          }
         }
       }
     }
@@ -586,19 +611,22 @@ export class MixExampleGenerator {
     // Вычитание (если не первое действие)
     if (!isFirst) {
       for (let digit = 1; digit <= 9; digit++) {
-        // PROSTO действие: изменяем только целевой разряд
-        const action = digit * step;
-        const newValue = value - action;
+        // Для многозначных: пробуем разные комбинации с младшими разрядами
+        for (const lowerDigit of lowerDigitsVariants) {
+          // PROSTO действие: изменяем целевой разряд + младшие разряды
+          const action = digit * step + lowerDigit;
+          const newValue = value - action;
 
-        if (newValue < 0) continue; // уход в минус
+          if (newValue < 0) continue; // уход в минус
 
-        const newStates = this._numberToState(newValue);
-        const newTargetValue = newStates[this.targetPosition] || 0;
+          const newStates = this._numberToState(newValue);
+          const newTargetValue = newStates[this.targetPosition] || 0;
 
-        // Проверяем: можно ли сделать это действие "Просто" в целевом разряде
-        if (this._canMinusDirect(targetValue, digit) && targetValue - digit === newTargetValue) {
-          if (!isRepeat(-action)) {
-            actions.push(-action);
+          // Проверяем: можно ли сделать это действие "Просто" в целевом разряде
+          if (this._canMinusDirect(targetValue, digit) && targetValue - digit === newTargetValue) {
+            if (!isRepeat(-action)) {
+              actions.push(-action);
+            }
           }
         }
       }
