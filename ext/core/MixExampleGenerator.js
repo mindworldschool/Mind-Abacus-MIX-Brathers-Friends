@@ -563,19 +563,25 @@ export class MixExampleGenerator {
     const targetValue = states[this.targetPosition] || 0;
 
     // Для многозначных: генерируем варианты с разными младшими разрядами
-    // Это избегает доминирования "круглых" чисел (30, 40, 50...)
-    // Генерируем 5 случайных вариантов для каждого digit чтобы не перегружать
+    // Избегаем доминирования "круглых" чисел (30, 40, 50...)
+    // Круглые числа составляют только ~1% от всех действий
     const generateLowerDigits = () => {
       if (this.targetPosition === 0) return [0]; // для digitCount=1 нет младших разрядов
 
       const variants = new Set();
-      variants.add(0); // всегда включаем круглое число
 
-      // Добавляем 4-5 случайных вариантов
-      const maxVariants = Math.min(5, Math.pow(10, this.targetPosition));
+      // Круглое число (0) добавляем только с вероятностью 1%
+      if (Math.random() < 0.01) {
+        variants.add(0);
+      }
+
+      // Генерируем 5 случайных НЕНУЛЕВЫХ вариантов
+      const maxVariants = 5;
+      const maxLower = Math.pow(10, this.targetPosition);
+
       while (variants.size < maxVariants) {
-        // Генерируем случайное число для младших разрядов (0 до 10^targetPosition - 1)
-        const randomLower = Math.floor(Math.random() * Math.pow(10, this.targetPosition));
+        // Генерируем случайное НЕНУЛЕВОЕ число для младших разрядов (1 до 10^targetPosition - 1)
+        const randomLower = Math.floor(Math.random() * (maxLower - 1)) + 1;
         variants.add(randomLower);
       }
 
