@@ -1025,27 +1025,44 @@ export class MixExampleGenerator {
     }
 
     // Проверяем ограничения на следующий разряд ПОСЛЕ подготовки
+    // ВАЖНО: Генерируем случайные младшие разряды для КАЖДОГО подготовительного шага
     let prepStates = this._copyState(states);
+    const preparationSteps = [];
+
     for (const step of preparationPath) {
-      const prepAction = step * Math.pow(10, this.targetPosition);
+      // Базовое действие для целевого разряда
+      let prepAction = step * Math.pow(10, this.targetPosition);
+
+      // КРИТИЧЕСКИ ВАЖНО: Добавляем случайные младшие разряды (единицы ВСЕГДА 1-9)
+      if (this.targetPosition > 0) {
+        // Единицы: ВСЕГДА 1-9 (НЕ 0!)
+        const units = Math.floor(Math.random() * 9) + 1;
+        prepAction += units;
+
+        // Остальные разряды (если есть): 0-9
+        for (let pos = 1; pos < this.targetPosition; pos++) {
+          const digitValue = Math.floor(Math.random() * 10);
+          prepAction += digitValue * Math.pow(10, pos);
+        }
+      }
+
       prepStates = this._applyAction(prepStates, prepAction);
+
+      preparationSteps.push({
+        displayOp: prepAction >= 0 ? '+' : '-',
+        displayVal: Math.abs(prepAction),
+        type: 'PROSTO',
+        action: prepAction,
+        meta: {
+          purpose: 'preparation_for_mix'
+        }
+      });
     }
 
     const nextValue = prepStates[this.targetPosition + 1] || 0;
     if (!this._canApplyMixToNextDigit(nextValue, isAddition)) {
       return null; // следующий разряд вышел за допустимые границы
     }
-
-    // Формируем подготовительные шаги
-    const preparationSteps = preparationPath.map(step => ({
-      displayOp: step >= 0 ? '+' : '-',
-      displayVal: Math.abs(step) * Math.pow(10, this.targetPosition),
-      type: 'PROSTO',
-      action: step * Math.pow(10, this.targetPosition),
-      meta: {
-        purpose: 'preparation_for_mix'
-      }
-    }));
 
     // Применяем МИКС
     const { newStates, fullAction, lowerDigits } = this._applyMixAction(prepStates, digit, isAddition);
