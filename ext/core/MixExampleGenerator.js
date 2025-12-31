@@ -691,11 +691,17 @@ export class MixExampleGenerator {
 
     // Для многозначных: выбираем случайные значения для нижних разрядов (0..targetPosition-1)
     // Используем правило: Friends для позиции targetPosition-1 если цифра 6-9, Brothers для позиции targetPosition-2 и ниже
+    // ВАЖНО: Запрещаем круглые числа - младший разряд (единицы) ВСЕГДА 1-9
     const lowerDigits = [];
     for (let pos = this.targetPosition - 1; pos >= 0; pos--) {
-      // Для простоты: выбираем случайные допустимые значения 0-9
-      // TODO: в будущем можно добавить проверку Friends/Brothers
-      const randomDigit = Math.floor(Math.random() * 10);
+      let randomDigit;
+      if (pos === 0) {
+        // Младший разряд (единицы): ТОЛЬКО 1-9 (НЕ 0!)
+        randomDigit = Math.floor(Math.random() * 9) + 1;
+      } else {
+        // Остальные разряды: могут быть 0-9
+        randomDigit = Math.floor(Math.random() * 10);
+      }
       lowerDigits.push(randomDigit);
     }
 
@@ -1132,7 +1138,12 @@ export class MixExampleGenerator {
     const digit = this.config.selectedMixDigits[0] || 6;
 
     // Подготовка к МИКС: доводим целевой разряд до 8 для +6
-    const prepAction = 8 * Math.pow(10, this.targetPosition);
+    // ВАЖНО: Избегаем круглых чисел - добавляем случайные младшие разряды
+    let prepAction = 8 * Math.pow(10, this.targetPosition);
+    if (this.targetPosition > 0) {
+      // Добавляем случайные ненулевые единицы (1-9)
+      prepAction += Math.floor(Math.random() * 9) + 1;
+    }
     states = this._applyAction(states, prepAction);
     steps.push({
       displayOp: '+',
@@ -1163,7 +1174,15 @@ export class MixExampleGenerator {
     // Заполняем остальные шаги простыми действиями
     const step = Math.pow(10, this.targetPosition);
     while (steps.length < targetSteps) {
-      const action = Math.random() < 0.5 ? step : -step;
+      // ВАЖНО: Избегаем круглых чисел - добавляем случайные единицы
+      let action = step;
+      if (this.targetPosition > 0) {
+        // Добавляем случайные ненулевые единицы (1-9)
+        action += Math.floor(Math.random() * 9) + 1;
+      }
+      // Случайно выбираем знак
+      action = Math.random() < 0.5 ? action : -action;
+
       const newStates = this._applyAction(states, action);
       const newValue = this._stateToNumber(newStates);
 
