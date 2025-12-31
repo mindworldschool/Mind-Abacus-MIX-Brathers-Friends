@@ -538,7 +538,15 @@ export class MixExampleGenerator {
     const value = this._stateToNumber(states);
     const actions = [];
 
-    // Функция проверки повторов
+    // Шаг для изменения целевого разряда
+    // digitCount=1, targetPosition=0: step = 1 (единицы)
+    // digitCount=2, targetPosition=1: step = 10 (десятки)
+    // digitCount=3, targetPosition=2: step = 100 (сотни)
+    const step = Math.pow(10, this.targetPosition);
+
+    const targetValue = states[this.targetPosition] || 0;
+
+    // Функция проверки повторов (усиленная)
     const isRepeat = (action) => {
       const window = this.config.avoidRepeatWindow;
       if (lastActions.length === 0 || window === 0) return false;
@@ -548,36 +556,33 @@ export class MixExampleGenerator {
       // Не повторяем точно такое же действие
       if (recentSteps.includes(action)) return true;
 
-      // Не делаем противоположное действие (например +3 после -3)
+      // Не делаем противоположное действие (например +40 после -40)
       if (recentSteps.includes(-action)) return true;
+
+      // НОВОЕ: Избегаем действий с той же цифрой в целевом разряде
+      // Например, после +40 не делаем +47, +43, -42 (все имеют 4 в десятках)
+      const actionTargetDigit = Math.floor(Math.abs(action) / step) % 10;
+      for (const recentAction of recentSteps) {
+        const recentTargetDigit = Math.floor(Math.abs(recentAction) / step) % 10;
+        if (actionTargetDigit === recentTargetDigit) {
+          return true; // та же цифра в целевом разряде
+        }
+      }
 
       return false;
     };
 
-    // Шаг для изменения целевого разряда
-    // digitCount=1, targetPosition=0: step = 1 (единицы)
-    // digitCount=2, targetPosition=1: step = 10 (десятки)
-    // digitCount=3, targetPosition=2: step = 100 (сотни)
-    const step = Math.pow(10, this.targetPosition);
-
-    const targetValue = states[this.targetPosition] || 0;
-
     // Для многозначных: генерируем варианты с разными младшими разрядами
-    // Избегаем доминирования "круглых" чисел (30, 40, 50...)
-    // Круглые числа составляют только ~1% от всех действий
+    // ПОЛНОСТЬЮ ИСКЛЮЧАЕМ круглые числа (30, 40, 50...)
     const generateLowerDigits = () => {
       if (this.targetPosition === 0) return [0]; // для digitCount=1 нет младших разрядов
 
       const variants = new Set();
-
-      // Круглое число (0) добавляем только с вероятностью 1%
-      if (Math.random() < 0.01) {
-        variants.add(0);
-      }
-
-      // Генерируем 5 случайных НЕНУЛЕВЫХ вариантов
-      const maxVariants = 5;
       const maxLower = Math.pow(10, this.targetPosition);
+
+      // Генерируем максимально возможное количество вариантов для разнообразия
+      // Но не включаем 0 (круглые числа полностью исключены)
+      const maxVariants = Math.min(9, maxLower - 1);
 
       while (variants.size < maxVariants) {
         // Генерируем случайное НЕНУЛЕВОЕ число для младших разрядов (1 до 10^targetPosition - 1)
