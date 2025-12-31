@@ -573,20 +573,24 @@ export class MixExampleGenerator {
     };
 
     // Для многозначных: генерируем варианты с разными младшими разрядами
-    // ПОЛНОСТЬЮ ИСКЛЮЧАЕМ круглые числа (30, 40, 50...)
+    // КРИТИЧЕСКИ ВАЖНО: Младший разряд (единицы) ВСЕГДА 1-9, НИКОГДА не 0!
     const generateLowerDigits = () => {
       if (this.targetPosition === 0) return [0]; // для digitCount=1 нет младших разрядов
 
       const variants = new Set();
-      const maxLower = Math.pow(10, this.targetPosition);
-
-      // Генерируем максимально возможное количество вариантов для разнообразия
-      // Но не включаем 0 (круглые числа полностью исключены)
-      const maxVariants = Math.min(9, maxLower - 1);
+      const maxVariants = 9; // генерируем до 9 вариантов
 
       while (variants.size < maxVariants) {
-        // Генерируем случайное НЕНУЛЕВОЕ число для младших разрядов (1 до 10^targetPosition - 1)
-        const randomLower = Math.floor(Math.random() * (maxLower - 1)) + 1;
+        // Генерируем число, где единицы ВСЕГДА 1-9
+        const units = Math.floor(Math.random() * 9) + 1; // 1-9
+
+        // Для остальных разрядов (если есть): 0-9
+        let randomLower = units;
+        for (let pos = 1; pos < this.targetPosition; pos++) {
+          const digitValue = Math.floor(Math.random() * 10); // 0-9
+          randomLower += digitValue * Math.pow(10, pos);
+        }
+
         variants.add(randomLower);
       }
 
