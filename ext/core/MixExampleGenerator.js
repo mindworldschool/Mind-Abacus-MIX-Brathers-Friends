@@ -49,8 +49,9 @@ export class MixExampleGenerator {
       // Разрядность ДЕЙСТВИЙ (1 для однозначных, 2 для двузначных, 3 для трехзначных и т.д.)
       digitCount: config.digitCount || 1,
 
-      // Точное количество шагов в цепочке
-      chainLength: config.chainLength || config.maxSteps || 7,
+      // Диапазон количества шагов в цепочке
+      minSteps: config.minSteps || config.chainLength || 4,
+      maxSteps: config.maxSteps || config.chainLength || 7,
 
       // Минимум МИКС-действий в цепочке
       minMixCount: config.minMixCount || 1,
@@ -85,11 +86,19 @@ export class MixExampleGenerator {
       this.config.selectedMixDigits = [6];
     }
 
-    if (this.config.chainLength < 4) {
+    // Валидация диапазона шагов
+    if (this.config.minSteps < 4) {
       if (!this.config.silent) {
-        console.warn(`⚠️ MixExampleGenerator: правило МИКС требует минимум 4 шага! Было: ${this.config.chainLength}, устанавливаем 4`);
+        console.warn(`⚠️ MixExampleGenerator: правило МИКС требует минимум 4 шага! Было: ${this.config.minSteps}, устанавливаем 4`);
       }
-      this.config.chainLength = 4;
+      this.config.minSteps = 4;
+    }
+
+    if (this.config.maxSteps < this.config.minSteps) {
+      if (!this.config.silent) {
+        console.warn(`⚠️ MixExampleGenerator: maxSteps < minSteps! Устанавливаем maxSteps = minSteps`);
+      }
+      this.config.maxSteps = this.config.minSteps;
     }
 
     // РАЗРЯДНОСТЬ СОСТОЯНИЯ = digitCount + 1 (дополнительный разряд для переноса)
@@ -111,7 +120,7 @@ export class MixExampleGenerator {
   Разрядность действий: ${this.config.digitCount}
   Разрядность состояния: ${this.stateDigitCount}
   Целевой разряд: ${this.targetPosition} (${this._getPositionName(this.targetPosition)})
-  Точное количество шагов: ${this.config.chainLength}
+  Диапазон количества шагов: ${this.config.minSteps}-${this.config.maxSteps}
   Минимум МИКС: ${this.config.minMixCount}
   Максимальное значение: ${this.maxValue}
   Вероятность МИКС после минимума: ${this.config.mixTryRate * 100}%
@@ -760,7 +769,9 @@ export class MixExampleGenerator {
    * Одна попытка генерации примера
    */
   _generateAttempt() {
-    const targetSteps = this.config.chainLength;
+    // Выбираем случайное количество шагов в диапазоне minSteps-maxSteps
+    const targetSteps = this.config.minSteps +
+      Math.floor(Math.random() * (this.config.maxSteps - this.config.minSteps + 1));
     const minMixCount = this.config.minMixCount;
 
     const steps = [];
@@ -771,7 +782,7 @@ export class MixExampleGenerator {
 
     const lastActions = []; // для отслеживания повторов
 
-    this._log(`🎯 Генерация МИКС примера: ${targetSteps} шагов (точно), минимум ${minMixCount} МИКС`);
+    this._log(`🎯 Генерация МИКС примера: ${targetSteps} шагов (из диапазона ${this.config.minSteps}-${this.config.maxSteps}), минимум ${minMixCount} МИКС`);
 
     while (steps.length < targetSteps && attempts < maxAttempts) {
       attempts++;
@@ -1101,8 +1112,8 @@ export class MixExampleGenerator {
   _validateExample(example) {
     const { startValue, steps, finalValue, stats } = example;
 
-    // 1. Проверка ТОЧНОГО количества шагов
-    if (steps.length !== this.config.chainLength) {
+    // 1. Проверка количества шагов в диапазоне
+    if (steps.length < this.config.minSteps || steps.length > this.config.maxSteps) {
       return false;
     }
 
@@ -1141,12 +1152,14 @@ export class MixExampleGenerator {
    * Упрощенный fallback-пример если генерация не удалась
    */
   _fallbackExample() {
-    const targetSteps = this.config.chainLength;
+    // Выбираем случайное количество шагов в диапазоне minSteps-maxSteps
+    const targetSteps = this.config.minSteps +
+      Math.floor(Math.random() * (this.config.maxSteps - this.config.minSteps + 1));
     const steps = [];
     let states = Array(this.stateDigitCount).fill(0);
     let mixCount = 0;
 
-    this._log(`⚠️ Используем fallback генерацию для ${targetSteps} шагов`);
+    this._log(`⚠️ Используем fallback генерацию для ${targetSteps} шагов (из диапазона ${this.config.minSteps}-${this.config.maxSteps})`);
 
     // Пытаемся добавить хотя бы 1 МИКС
     const digit = this.config.selectedMixDigits[0] || 6;

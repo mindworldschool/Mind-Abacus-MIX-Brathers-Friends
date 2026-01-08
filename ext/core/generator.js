@@ -283,7 +283,8 @@ if (!settings.silent)       console.log("   📌 Только вычитание
       const mixGenerator = new MixExampleGenerator({
         selectedMixDigits: selectedMixDigits.length > 0 ? selectedMixDigits : [6],
         digitCount: digitCount, // ← Передаем разрядность ДЕЙСТВИЙ (не состояния!)
-        chainLength: maxSteps, // точное количество шагов
+        minSteps: minSteps, // минимальное количество шагов
+        maxSteps: maxSteps, // максимальное количество шагов
         minMixCount: 1, // минимум МИКС-действий (дефолт)
         mixTryRate: 0.4, // 40% вероятность после минимума
         avoidRepeatWindow: 3, // окно для избежания повторов
