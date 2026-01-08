@@ -572,6 +572,12 @@ export function mountTrainerUI(container, {
           userAnswer
         });
         playSound("wrong");
+
+        // Показываем правильный ответ при ошибке
+        toast.error(
+          t?.("trainer.wrongAnswer") ||
+          `Неправильно! Правильный ответ: ${ex.answer}`
+        );
       }
 
       updateStatsUI();
@@ -599,6 +605,12 @@ export function mountTrainerUI(container, {
         userAnswer: null,
         timedOut: true
       });
+
+      // Показываем правильный ответ при истечении времени
+      toast.error(
+        t?.("trainer.timeExpired") ||
+        `Время истекло! Правильный ответ: ${ex.answer}`
+      );
 
       updateStatsUI();
 

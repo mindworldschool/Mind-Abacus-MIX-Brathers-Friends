@@ -678,20 +678,6 @@ export class MixExampleGenerator {
    */
   _applyMixAction(states, digit, isAddition) {
     const friend = 10 - digit;
-    const newStates = this._copyState(states);
-
-    // Применяем МИКС к целевому разряду
-    if (isAddition) {
-      // +k = (+5 - brother) + (+10 - friend)
-      // Итоговый эффект: targetPosition -= friend, (targetPosition+1) += 1
-      newStates[this.targetPosition] -= friend;
-      newStates[this.targetPosition + 1] = (newStates[this.targetPosition + 1] || 0) + 1;
-    } else {
-      // -k = (-5 + brother) + (-10 + friend)
-      // Итоговый эффект: targetPosition += friend, (targetPosition+1) -= 1
-      newStates[this.targetPosition] += friend;
-      newStates[this.targetPosition + 1] = (newStates[this.targetPosition + 1] || 0) - 1;
-    }
 
     // Для многозначных: выбираем случайные значения для нижних разрядов (0..targetPosition-1)
     // Используем правило: Friends для позиции targetPosition-1 если цифра 6-9, Brothers для позиции targetPosition-2 и ниже
@@ -719,6 +705,13 @@ export class MixExampleGenerator {
     if (!isAddition) {
       fullAction = -fullAction;
     }
+
+    // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ:
+    // Применяем ПОЛНОЕ действие (включая младшие разряды) к состоянию
+    // Раньше применялся только эффект МИКС к целевому разряду, а младшие разряды игнорировались!
+    const currentValue = this._stateToNumber(states);
+    const newValue = currentValue + fullAction;
+    const newStates = this._numberToState(newValue);
 
     return {
       newStates,
