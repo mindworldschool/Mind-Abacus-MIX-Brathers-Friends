@@ -575,7 +575,6 @@ export function mountTrainerUI(container, {
 
         // Показываем правильный ответ при ошибке
         toast.error(
-          t?.("trainer.wrongAnswer") ||
           `Неправильно! Правильный ответ: ${ex.answer}`
         );
       }
@@ -608,7 +607,6 @@ export function mountTrainerUI(container, {
 
       // Показываем правильный ответ при истечении времени
       toast.error(
-        t?.("trainer.timeExpired") ||
         `Время истекло! Правильный ответ: ${ex.answer}`
       );
 
