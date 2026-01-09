@@ -85,11 +85,11 @@ export class MixExampleGenerator {
       this.config.selectedMixDigits = [6];
     }
 
-    if (this.config.chainLength < 4) {
+    if (this.config.chainLength < 2) {
       if (!this.config.silent) {
-        console.warn(`⚠️ MixExampleGenerator: правило МИКС требует минимум 4 шага! Было: ${this.config.chainLength}, устанавливаем 4`);
+        console.warn(`⚠️ MixExampleGenerator: правило МИКС требует минимум 2 шага! Было: ${this.config.chainLength}, устанавливаем 2`);
       }
-      this.config.chainLength = 4;
+      this.config.chainLength = 2;
     }
 
     // РАЗРЯДНОСТЬ СОСТОЯНИЯ = digitCount + 1 (дополнительный разряд для переноса)
