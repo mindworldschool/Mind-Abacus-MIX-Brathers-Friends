@@ -267,8 +267,9 @@ export class UnifiedSimpleRule extends BaseRule {
    *        - первый шаг не может быть отрицательным,
    *        - если onlyAddition → только плюсы,
    *        - если onlySubtraction → только минусы (кроме самого первого шага, где минус запрещён).
+   *   6. Фильтруем повторы: блокируем подряд идущие действия с одинаковым абсолютным значением
    */
-  getAvailableActions(currentState, isFirstAction = false, position = 0) {
+  getAvailableActions(currentState, isFirstAction = false, position = 0, previousSteps = []) {
     const {
       digitCount,
       selectedDigits,
@@ -318,17 +319,30 @@ export class UnifiedSimpleRule extends BaseRule {
       }
     }
 
+    // Фильтруем повторы: блокируем подряд идущие действия с одинаковым абсолютным значением
+    let filteredActions = out;
+    if (previousSteps.length > 0) {
+      const lastStep = previousSteps[previousSteps.length - 1];
+      const lastValue = lastStep.action ?? lastStep;
+      const lastActionValue = typeof lastValue === 'object' ? lastValue.value : lastValue;
+
+      filteredActions = out.filter(action => {
+        const currentValue = typeof action === 'object' ? action.value : action;
+        return Math.abs(currentValue) !== Math.abs(lastActionValue);
+      });
+    }
+
     // Лог для отладки
     const stateStr = Array.isArray(currentState)
       ? `[${currentState.join(", ")}]`
       : currentState;
     this._log(
-      `⚙️ getAvailableActions(): state=${stateStr}, pos=${position}, v=${v} → [${out
+      `⚙️ getAvailableActions(): state=${stateStr}, pos=${position}, v=${v} → [${filteredActions
         .map(a => (typeof a === "object" ? a.value : a))
         .join(", ")}]`
     );
 
-    return out;
+    return filteredActions;
   }
 
   /**

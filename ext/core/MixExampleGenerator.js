@@ -546,30 +546,20 @@ export class MixExampleGenerator {
 
     const targetValue = states[this.targetPosition] || 0;
 
-    // Функция проверки повторов (усиленная)
+    // Функция проверки: не повторяем одно и то же число подряд
     const isRepeat = (action) => {
-      const window = this.config.avoidRepeatWindow;
-      if (lastActions.length === 0 || window === 0) return false;
+      if (lastActions.length === 0) return false;
 
-      const recentSteps = lastActions.slice(-window);
+      // Проверяем только ПОСЛЕДНЕЕ действие (подряд = непосредственно предыдущее)
+      const lastAction = lastActions[lastActions.length - 1];
 
-      // Не повторяем точно такое же действие
-      if (recentSteps.includes(action)) return true;
-
-      // Не делаем противоположное действие (например +40 после -40)
-      if (recentSteps.includes(-action)) return true;
-
-      // НОВОЕ: Избегаем действий с той же цифрой в целевом разряде
-      // Например, после +40 не делаем +47, +43, -42 (все имеют 4 в десятках)
-      const actionTargetDigit = Math.floor(Math.abs(action) / step) % 10;
-      for (const recentAction of recentSteps) {
-        const recentTargetDigit = Math.floor(Math.abs(recentAction) / step) % 10;
-        if (actionTargetDigit === recentTargetDigit) {
-          return true; // та же цифра в целевом разряде
-        }
+      // Блокируем если абсолютные значения совпадают (не важен знак)
+      // Например: после +3 блокируем -3, после +68 блокируем -68
+      if (Math.abs(lastAction) === Math.abs(action)) {
+        return true; // ❌ Одно и то же число подряд
       }
 
-      return false;
+      return false; // ✅ Разные числа
     };
 
     // Для многозначных: генерируем варианты с разными младшими разрядами
@@ -946,7 +936,7 @@ export class MixExampleGenerator {
 
     // Пробуем разные знаки
     for (const isAddition of shuffledSigns) {
-      const result = this._tryGenerateMixForDigitAndSign(states, digit, isAddition);
+      const result = this._tryGenerateMixForDigitAndSign(states, digit, isAddition, lastActions);
       if (result) {
         return result;
       }
@@ -959,11 +949,20 @@ export class MixExampleGenerator {
   /**
    * Попытка сгенерировать МИКС для конкретной цифры и знака
    */
-  _tryGenerateMixForDigitAndSign(states, digit, isAddition) {
+  _tryGenerateMixForDigitAndSign(states, digit, isAddition, lastActions = []) {
     // Проверяем: можно ли выполнить МИКС с текущим состоянием?
     if (this._canApplyMix(states, digit, isAddition)) {
       // Можем выполнить МИКС сразу - НЕ нужна подготовка
       const { newStates, fullAction, lowerDigits } = this._applyMixAction(states, digit, isAddition);
+
+      // НОВАЯ ПРОВЕРКА: не повторяем одно и то же число подряд
+      if (lastActions.length > 0) {
+        const lastAction = lastActions[lastActions.length - 1];
+        if (Math.abs(lastAction) === Math.abs(fullAction)) {
+          return null; // ❌ Одно и то же число подряд - пропускаем это действие
+        }
+      }
+
       const friend = 10 - digit;
       const brother = 5 - friend;
 
@@ -1059,6 +1058,20 @@ export class MixExampleGenerator {
 
     // Применяем МИКС
     const { newStates, fullAction, lowerDigits } = this._applyMixAction(prepStates, digit, isAddition);
+
+    // НОВАЯ ПРОВЕРКА: не повторяем одно и то же число подряд
+    // Проверяем последнее действие (либо последнее подготовительное, либо из lastActions)
+    const allActions = preparationSteps.length > 0
+      ? preparationSteps.map(s => s.action)
+      : lastActions;
+
+    if (allActions.length > 0) {
+      const lastActionValue = allActions[allActions.length - 1];
+      if (Math.abs(lastActionValue) === Math.abs(fullAction)) {
+        return null; // ❌ Одно и то же число подряд - пропускаем это действие
+      }
+    }
+
     const friend = 10 - digit;
     const brother = 5 - friend;
 

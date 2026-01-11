@@ -658,6 +658,7 @@ export class FriendsExampleGenerator {
     // Трекинг последних действий для разнообразия
     let lastSimpleDigit = null;
     let stepsSinceLastFriend = 0;
+    const lastActions = []; // Для проверки повторов
 
     this._log(`🎯 Генерация Friends примера: ${targetSteps} шагов (точно)`);
 
@@ -680,7 +681,7 @@ export class FriendsExampleGenerator {
 
       if (tryFriend) {
         // Попытка сгенерировать Friends действие
-        const friendAction = this._generateFriendAction(states, isFirst);
+        const friendAction = this._generateFriendAction(states, isFirst, lastActions);
 
         if (friendAction) {
           // Применяем Friends действие
@@ -701,6 +702,9 @@ export class FriendsExampleGenerator {
             friendStepsCount++;
             stepsSinceLastFriend = 0;
 
+            // Добавляем действие в lastActions для проверки повторов
+            lastActions.push(friendAction.value);
+
             // Обновляем статистику использования цифры
             const usedDigit = Math.abs(this._numberToDigits(Math.abs(friendAction.value), this.config.digitCount)[this.targetPosition]);
             this.digitUsageCount[usedDigit]++;
@@ -711,7 +715,7 @@ export class FriendsExampleGenerator {
       }
 
       // Генерируем простое действие
-      const simpleAction = this._generateSimpleAction(states, isFirst, lastSimpleDigit);
+      const simpleAction = this._generateSimpleAction(states, isFirst, lastSimpleDigit, lastActions);
 
       if (!simpleAction) {
         // Ничего не подошло
@@ -737,6 +741,9 @@ export class FriendsExampleGenerator {
       states = newStates;
       stepsSinceLastFriend++;
       lastSimpleDigit = Math.abs(simpleAction.value) % 10; // Последняя цифра
+
+      // Добавляем действие в lastActions для проверки повторов
+      lastActions.push(simpleAction.value);
     }
 
     // Проверка: достигли ли ТОЧНОГО количества шагов?
@@ -766,7 +773,7 @@ export class FriendsExampleGenerator {
    * 4. Проверяем отсутствие МИКСА
    * 5. Если текущее состояние не подходит → пробуем другую цифру
    */
-  _generateFriendAction(states, isFirst) {
+  _generateFriendAction(states, isFirst, lastActions = []) {
     const { selectedDigits, onlyAddition, onlySubtraction } = this.config;
 
     // Сортируем цифры по частоте использования (меньше использованные - приоритет)
@@ -784,13 +791,13 @@ export class FriendsExampleGenerator {
     for (const friendDigit of digitsToTry) {
       // Пробуем сложение
       if (!onlySubtraction && (isFirst || true)) {
-        const action = this._tryGenerateFriendAddition(friendDigit, states, isFirst);
+        const action = this._tryGenerateFriendAddition(friendDigit, states, isFirst, lastActions);
         if (action) return action;
       }
 
       // Пробуем вычитание
       if (!onlyAddition && !isFirst) {
-        const action = this._tryGenerateFriendSubtraction(friendDigit, states);
+        const action = this._tryGenerateFriendSubtraction(friendDigit, states, lastActions);
         if (action) return action;
       }
     }
@@ -801,7 +808,7 @@ export class FriendsExampleGenerator {
   /**
    * Попытка сгенерировать +action с правилом Друзья для заданной цифры
    */
-  _tryGenerateFriendAddition(friendDigit, states, isFirst) {
+  _tryGenerateFriendAddition(friendDigit, states, isFirst, lastActions = []) {
     const requirements = this._getAdditionRequirements(friendDigit);
     const targetVal = states[this.targetPosition] || 0;
 
@@ -854,13 +861,21 @@ export class FriendsExampleGenerator {
       return null; // ❌ МИКС
     }
 
+    // Проверка повтора: блокируем подряд идущие действия с одинаковым абсолютным значением
+    if (lastActions.length > 0) {
+      const lastAction = lastActions[lastActions.length - 1];
+      if (Math.abs(lastAction) === Math.abs(value)) {
+        return null; // ❌ Блокируем повтор
+      }
+    }
+
     return { value, isFriend: true };
   }
 
   /**
    * Попытка сгенерировать -action с правилом Друзья для заданной цифры
    */
-  _tryGenerateFriendSubtraction(friendDigit, states) {
+  _tryGenerateFriendSubtraction(friendDigit, states, lastActions = []) {
     const requirements = this._getSubtractionRequirements(friendDigit);
     const targetVal = states[this.targetPosition] || 0;
 
@@ -913,6 +928,14 @@ export class FriendsExampleGenerator {
       return null;
     }
 
+    // Проверка повтора: блокируем подряд идущие действия с одинаковым абсолютным значением
+    if (lastActions.length > 0) {
+      const lastAction = lastActions[lastActions.length - 1];
+      if (Math.abs(lastAction) === Math.abs(value)) {
+        return null; // ❌ Блокируем повтор
+      }
+    }
+
     return { value, isFriend: true };
   }
 
@@ -945,7 +968,7 @@ export class FriendsExampleGenerator {
   /**
    * Генерация простого (не-Friends) действия для разнообразия
    */
-  _generateSimpleAction(states, isFirst, lastDigit = null) {
+  _generateSimpleAction(states, isFirst, lastDigit = null, lastActions = []) {
     const availableActions = [];
 
     // Генерируем многозначные простые действия
@@ -1020,11 +1043,19 @@ export class FriendsExampleGenerator {
       }
     }
 
-    if (availableActions.length === 0) {
+    // Фильтруем действия: блокируем подряд идущие с одинаковым абсолютным значением
+    let filteredActions = availableActions;
+    if (lastActions.length > 0) {
+      const lastAction = lastActions[lastActions.length - 1];
+      filteredActions = availableActions.filter(action => Math.abs(action) !== Math.abs(lastAction));
+    }
+
+    // Если после фильтрации ничего не осталось, возвращаем null
+    if (filteredActions.length === 0) {
       return null;
     }
 
-    const action = availableActions[Math.floor(Math.random() * availableActions.length)];
+    const action = filteredActions[Math.floor(Math.random() * filteredActions.length)];
     return { value: action, isFriend: false };
   }
 
