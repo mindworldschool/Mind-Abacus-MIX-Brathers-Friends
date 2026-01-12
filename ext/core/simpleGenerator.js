@@ -44,6 +44,9 @@ export function generateOneSimpleExample(cfg) {
 
   const steps = [];
 
+  // Трекинг использованных цифр для гарантии разнообразия
+  const usedDigits = new Set();
+
   for (let i = 0; i < cfg.stepsCount; i++) {
     // спросить у правила, какие шаги доступны сейчас
     const isFirstAction = i === 0;
@@ -61,9 +64,18 @@ export function generateOneSimpleExample(cfg) {
       break;
     }
 
-    // выбираем случайный шаг
-    const action = possible[Math.floor(Math.random() * possible.length)];
-    // action в однознаковом режиме — это просто число, типа +3 или -7
+    // Приоритизируем неиспользованные цифры
+    const unusedDigitActions = possible.filter(action => {
+      const digit = Math.abs(action);
+      return !usedDigits.has(digit);
+    });
+
+    // Выбираем из неиспользованных, если есть; иначе из всех
+    const candidateActions = unusedDigitActions.length > 0 ? unusedDigitActions : possible;
+    const action = candidateActions[Math.floor(Math.random() * candidateActions.length)];
+
+    // Отмечаем цифру как использованную
+    usedDigits.add(Math.abs(action));
 
     // применяем действие, получаем новое состояние
     const nextState = rule.applyAction(currentState, action);
@@ -89,6 +101,16 @@ export function generateOneSimpleExample(cfg) {
   if (!rule.validateExample(example)) {
     console.warn("⚠️ пример сгенерирован, но не прошёл validateExample, пробуем другой");
     return null;
+  }
+
+  // НОВАЯ ПРОВЕРКА: все ли выбранные цифры присутствуют?
+  // (только если количество шагов >= количества выбранных цифр)
+  if (cfg.stepsCount >= cfg.selectedDigits.length) {
+    const missingDigits = cfg.selectedDigits.filter(d => !usedDigits.has(d));
+    if (missingDigits.length > 0) {
+      console.warn(`⚠️ Не все выбранные цифры использованы: отсутствуют [${missingDigits.join(', ')}], перегенерируем`);
+      return null; // перегенерируем пример
+    }
   }
 
   return example;
