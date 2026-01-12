@@ -547,7 +547,9 @@ export class MixExampleGenerator {
     const targetValue = states[this.targetPosition] || 0;
 
     // Функция проверки: не повторяем одно и то же число подряд
+    // Применяется только если есть альтернативы
     const isRepeat = (action) => {
+      // Не фильтруем первое действие
       if (lastActions.length === 0) return false;
 
       // Проверяем только ПОСЛЕДНЕЕ действие (подряд = непосредственно предыдущее)
@@ -606,8 +608,15 @@ export class MixExampleGenerator {
 
         // Проверяем: можно ли сделать это действие "Просто" в целевом разряде
         if (this._canPlusDirect(targetValue, digit) && targetValue + digit === newTargetValue) {
-          if (!isRepeat(action)) {
-            actions.push(action);
+          // Сначала добавляем действие независимо от повтора
+          const isRepeating = isRepeat(action);
+
+          // Если это не повтор, добавляем в начало списка (приоритет)
+          // Если повтор, добавляем в конец (запасной вариант)
+          if (!isRepeating) {
+            actions.unshift(action); // в начало
+          } else {
+            actions.push(action); // в конец как запасной вариант
           }
         }
       }
@@ -629,8 +638,15 @@ export class MixExampleGenerator {
 
           // Проверяем: можно ли сделать это действие "Просто" в целевом разряде
           if (this._canMinusDirect(targetValue, digit) && targetValue - digit === newTargetValue) {
-            if (!isRepeat(-action)) {
-              actions.push(-action);
+            // Сначала добавляем действие независимо от повтора
+            const isRepeating = isRepeat(-action);
+
+            // Если это не повтор, добавляем в начало списка (приоритет)
+            // Если повтор, добавляем в конец (запасной вариант)
+            if (!isRepeating) {
+              actions.unshift(-action); // в начало
+            } else {
+              actions.push(-action); // в конец как запасной вариант
             }
           }
         }

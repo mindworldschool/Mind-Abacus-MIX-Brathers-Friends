@@ -1045,12 +1045,17 @@ export class FriendsExampleGenerator {
 
     // Фильтруем действия: блокируем подряд идущие с одинаковым абсолютным значением
     let filteredActions = availableActions;
-    if (lastActions.length > 0) {
+    if (lastActions.length > 0 && availableActions.length > 1) { // Фильтруем только если есть альтернативы
       const lastAction = lastActions[lastActions.length - 1];
-      filteredActions = availableActions.filter(action => Math.abs(action) !== Math.abs(lastAction));
+      const filtered = availableActions.filter(action => Math.abs(action) !== Math.abs(lastAction));
+
+      // Используем отфильтрованный список только если в нём что-то осталось
+      if (filtered.length > 0) {
+        filteredActions = filtered;
+      }
     }
 
-    // Если после фильтрации ничего не осталось, возвращаем null
+    // Если нет доступных действий, возвращаем null
     if (filteredActions.length === 0) {
       return null;
     }

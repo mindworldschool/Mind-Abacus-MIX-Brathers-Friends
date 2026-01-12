@@ -321,15 +321,20 @@ export class UnifiedSimpleRule extends BaseRule {
 
     // Фильтруем повторы: блокируем подряд идущие действия с одинаковым абсолютным значением
     let filteredActions = out;
-    if (previousSteps.length > 0) {
+    if (previousSteps.length > 0 && out.length > 1) { // Фильтруем только если есть альтернативы
       const lastStep = previousSteps[previousSteps.length - 1];
       const lastValue = lastStep.action ?? lastStep;
       const lastActionValue = typeof lastValue === 'object' ? lastValue.value : lastValue;
 
-      filteredActions = out.filter(action => {
+      const filtered = out.filter(action => {
         const currentValue = typeof action === 'object' ? action.value : action;
         return Math.abs(currentValue) !== Math.abs(lastActionValue);
       });
+
+      // Используем отфильтрованный список только если в нём что-то осталось
+      if (filtered.length > 0) {
+        filteredActions = filtered;
+      }
     }
 
     // Лог для отладки
