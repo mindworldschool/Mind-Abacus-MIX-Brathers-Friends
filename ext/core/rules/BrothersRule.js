@@ -171,13 +171,11 @@ export class BrothersRule extends BaseRule {
     const brotherActions = [];
     const simpleActions = [];
 
-    // 🔥 НОВОЕ: Анализируем последние 2 шага для избежания повторов
-    const lastStep = previousSteps.length > 0 ? 
+    // Получаем последнее действие для проверки повторов
+    const lastStep = previousSteps.length > 0 ?
       previousSteps[previousSteps.length - 1] : null;
-    const prevStep = previousSteps.length > 1 ? 
-      previousSteps[previousSteps.length - 2] : null;
-    
-    // Получаем значения последних шагов
+
+    // Извлекаем значение последнего действия
     const getStepValue = (step) => {
       if (!step) return null;
       const action = step.action ?? step;
@@ -186,40 +184,19 @@ export class BrothersRule extends BaseRule {
       }
       return action; // простой числовой шаг
     };
-    
+
     const lastValue = getStepValue(lastStep);
-    const prevValue = getStepValue(prevStep);
-    
-    // Функция проверки: можно ли использовать это число?
+
+    // Функция проверки: блокируем подряд идущие действия с одинаковым абсолютным значением
     const canUseNumber = (num) => {
       // Первый шаг - можно всё
       if (previousSteps.length === 0) return true;
-      
-      // Не повторяем ТОЧНО то же действие подряд
-      if (lastValue === num) {
-        this._log(`🚫 Фильтр повторов: пропускаем ${num} (было в последнем шаге)`);
+
+      // Блокируем если абсолютные значения совпадают (проверяем только последнее действие - подряд)
+      if (Math.abs(lastValue) === Math.abs(num)) {
         return false;
       }
 
-      // Не делаем +N сразу после -N (и наоборот)
-      if (lastValue === -num) {
-        this._log(`🚫 Фильтр повторов: пропускаем ${num} (противоположное ${lastValue} было в последнем шаге)`);
-        return false;
-      }
-
-      // Не повторяем одно абсолютное число 3 раза подряд
-      // Например: +4, -4, +4 ← третий раз 4 нельзя
-      if (prevValue !== null) {
-        const absLast = Math.abs(lastValue);
-        const absPrev = Math.abs(prevValue);
-        const absNum = Math.abs(num);
-
-        if (absLast === absNum && absPrev === absNum) {
-          this._log(`🚫 Фильтр повторов: пропускаем ${num} (абс. значение ${absNum} уже было 2 раза подряд)`);
-          return false;
-        }
-      }
-      
       return true;
     };
 
