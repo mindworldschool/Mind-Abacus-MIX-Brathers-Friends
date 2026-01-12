@@ -152,20 +152,21 @@ export class BrothersRule extends BaseRule {
 
   /**
    * Возвращаем И братские, И простые шаги
-   * 
+   *
    * ЛОГИКА "Только сложение/вычитание":
    * - Применяется ТОЛЬКО к братским шагам (выбранной тренируемой цифре)
    * - Простые вспомогательные шаги ВСЕГДА доступны с любым знаком
-   * 
+   *
    * ЛОГИКА "Избежание повторов":
    * - Не повторяем одно и то же число подряд (особенно с противоположным знаком)
    * - Между повторами одного числа должны быть другие числа
-   * 
+   *
    * @param {number} currentState - Текущее состояние (0-9)
    * @param {boolean} isFirstAction - Это первый шаг?
+   * @param {*} fullState - Полное состояние (для совместимости с ExampleGenerator, не используется)
    * @param {Array} previousSteps - История предыдущих шагов для проверки повторов
    */
-  getAvailableActions(currentState, isFirstAction = false, previousSteps = []) {
+  getAvailableActions(currentState, isFirstAction = false, fullState = null, previousSteps = []) {
     const { onlyAddition, onlySubtraction, brothersDigits, simpleBlockDigits } = this.config;
     const v = currentState;
     const brotherActions = [];
