@@ -51,7 +51,9 @@ export function generateOneSimpleExample(cfg) {
     const possible = rule.getAvailableActions(
       currentState,
       isFirstAction,
-      /* position */ 0
+      /* position */ 0,
+      /* fullState */ null,
+      /* previousSteps */ steps
     );
 
     // если вообще нет допустимых шагов — тупик, выходим досрочно

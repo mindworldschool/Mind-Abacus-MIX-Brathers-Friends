@@ -269,7 +269,7 @@ export class UnifiedSimpleRule extends BaseRule {
    *        - если onlySubtraction → только минусы (кроме самого первого шага, где минус запрещён).
    *   6. Фильтруем повторы: блокируем подряд идущие действия с одинаковым абсолютным значением
    */
-  getAvailableActions(currentState, isFirstAction = false, position = 0, previousSteps = []) {
+  getAvailableActions(currentState, isFirstAction = false, position = 0, fullState = null, previousSteps = []) {
     const {
       digitCount,
       selectedDigits,
