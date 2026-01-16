@@ -325,8 +325,7 @@ if (!settings.silent)       console.log("   📌 Только вычитание
       const friendsGenerator = new FriendsExampleGenerator({
         selectedDigits: selectedFriendsDigits.length > 0 ? selectedFriendsDigits : [1],
         digitCount: digitCount, // ← Передаем разрядность ДЕЙСТВИЙ (не состояния!)
-        minSteps: minSteps,
-        maxSteps: maxSteps,
+        stepsCount: maxSteps, // ← ИСПРАВЛЕНО: используем stepsCount вместо minSteps/maxSteps
         onlyAddition: blocks?.friends?.onlyAddition ?? false,
         onlySubtraction: blocks?.friends?.onlySubtraction ?? false,
         silent: settings.silent || false,  // Передаем флаг тихого режима
