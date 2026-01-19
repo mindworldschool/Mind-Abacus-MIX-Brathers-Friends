@@ -299,14 +299,56 @@ export class BrothersRule extends BaseRule {
       }
     }
 
-    // 🔥 ПРИОРИТИЗАЦИЯ: динамический процент
-    if (brotherActions.length > 0 && Math.random() < this.config.brotherPriority) {
-      this._log(`👬 Приоритет братским шагам из ${v} (доступно ${brotherActions.length})`);
-      return brotherActions;
+    // 🔥 ПРИОРИТИЗАЦИЯ НЕИСПОЛЬЗОВАННЫХ: предпочитаем действия с новыми абсолютными значениями
+    let prioritizedBrotherActions = brotherActions;
+    let prioritizedSimpleActions = simpleActions;
+
+    if (previousSteps.length > 0) {
+      // Собираем все использованные абсолютные значения
+      const usedAbsValues = new Set();
+      for (const step of previousSteps) {
+        const stepValue = getStepValue(step);
+        if (stepValue !== null) {
+          usedAbsValues.add(Math.abs(stepValue));
+        }
+      }
+
+      // Приоритизируем неиспользованные братские действия
+      if (brotherActions.length > 1) {
+        const unusedBrothers = brotherActions.filter(action => {
+          const val = action.value;
+          return !usedAbsValues.has(Math.abs(val));
+        });
+        if (unusedBrothers.length > 0) {
+          prioritizedBrotherActions = unusedBrothers;
+          this._log(`✨ Братья: приоритизируем ${unusedBrothers.length} неиспользованных`);
+        } else {
+          this._log(`🔄 Братья: fallback - все уже были использованы`);
+        }
+      }
+
+      // Приоритизируем неиспользованные простые действия
+      if (simpleActions.length > 1) {
+        const unusedSimple = simpleActions.filter(action => {
+          return !usedAbsValues.has(Math.abs(action));
+        });
+        if (unusedSimple.length > 0) {
+          prioritizedSimpleActions = unusedSimple;
+          this._log(`✨ Простые: приоритизируем ${unusedSimple.length} неиспользованных`);
+        } else {
+          this._log(`🔄 Простые: fallback - все уже были использованы`);
+        }
+      }
     }
 
-    const allActions = [...brotherActions, ...simpleActions];
-    this._log(`🎲 Состояние ${v}: братских=${brotherActions.length}, простых=${simpleActions.length}, всего=${allActions.length}`);
+    // 🔥 ПРИОРИТИЗАЦИЯ: динамический процент братских шагов
+    if (prioritizedBrotherActions.length > 0 && Math.random() < this.config.brotherPriority) {
+      this._log(`👬 Приоритет братским шагам из ${v} (доступно ${prioritizedBrotherActions.length})`);
+      return prioritizedBrotherActions;
+    }
+
+    const allActions = [...prioritizedBrotherActions, ...prioritizedSimpleActions];
+    this._log(`🎲 Состояние ${v}: братских=${prioritizedBrotherActions.length}, простых=${prioritizedSimpleActions.length}, всего=${allActions.length}`);
     return allActions;
   }
 

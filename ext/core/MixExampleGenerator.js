@@ -653,6 +653,20 @@ export class MixExampleGenerator {
       }
     }
 
+    // 🔥 ПРИОРИТИЗАЦИЯ НЕИСПОЛЬЗОВАННЫХ: дополнительная фильтрация
+    // Если есть действия, которые вообще не использовались в примере - приоритизируем их
+    if (lastActions.length > 0 && actions.length > 1) {
+      const usedAbsValues = new Set(lastActions.map(v => Math.abs(v)));
+      const unusedActions = actions.filter(action => !usedAbsValues.has(Math.abs(action)));
+
+      if (unusedActions.length > 0) {
+        this._log(`✨ Prosto: приоритизируем ${unusedActions.length} неиспользованных из ${actions.length}`);
+        return unusedActions;
+      } else {
+        this._log(`🔄 Prosto: fallback - все уже были использованы`);
+      }
+    }
+
     return actions;
   }
 
@@ -918,7 +932,7 @@ export class MixExampleGenerator {
 
     // Пробуем разные цифры, пока не найдём подходящую
     for (const digit of shuffledDigits) {
-      const result = this._tryGenerateMixForDigit(states, digit, isFirst, onlyAddition, onlySubtraction);
+      const result = this._tryGenerateMixForDigit(states, digit, isFirst, onlyAddition, onlySubtraction, lastActions);
       if (result) {
         return result;
       }
@@ -931,7 +945,7 @@ export class MixExampleGenerator {
   /**
    * Попытка сгенерировать МИКС для конкретной цифры
    */
-  _tryGenerateMixForDigit(states, digit, isFirst, onlyAddition, onlySubtraction) {
+  _tryGenerateMixForDigit(states, digit, isFirst, onlyAddition, onlySubtraction, lastActions = []) {
     // Определяем возможные знаки для МИКС
     const possibleSigns = [];
 
@@ -950,16 +964,36 @@ export class MixExampleGenerator {
     // Перемешиваем знаки для равномерного распределения
     const shuffledSigns = [...possibleSigns].sort(() => Math.random() - 0.5);
 
-    // Пробуем разные знаки
+    // 🔥 ПРИОРИТИЗАЦИЯ: собираем все возможные результаты
+    const allResults = [];
+
     for (const isAddition of shuffledSigns) {
       const result = this._tryGenerateMixForDigitAndSign(states, digit, isAddition, lastActions);
       if (result) {
-        return result;
+        allResults.push(result);
       }
     }
 
-    // Не удалось с этой цифрой
-    return null;
+    if (allResults.length === 0) {
+      return null;
+    }
+
+    // 🔥 ПРИОРИТИЗАЦИЯ НЕИСПОЛЬЗОВАННЫХ
+    if (lastActions.length > 0 && allResults.length > 1) {
+      const usedAbsValues = new Set(lastActions.map(v => Math.abs(v)));
+      const unusedResults = allResults.filter(result => {
+        const action = result.mixStep.action;
+        return !usedAbsValues.has(Math.abs(action));
+      });
+
+      if (unusedResults.length > 0) {
+        this._log(`✨ MIX: приоритизируем ${unusedResults.length} неиспользованных из ${allResults.length}`);
+        return unusedResults[Math.floor(Math.random() * unusedResults.length)];
+      }
+    }
+
+    // Fallback: возвращаем любой доступный
+    return allResults[Math.floor(Math.random() * allResults.length)];
   }
 
   /**

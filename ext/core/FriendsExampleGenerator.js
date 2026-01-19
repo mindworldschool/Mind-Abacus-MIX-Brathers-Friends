@@ -788,21 +788,40 @@ export class FriendsExampleGenerator {
 
     const digitsToTry = [...priorityDigits, ...restDigits];
 
+    // 🔥 ПРИОРИТИЗАЦИЯ: собираем все возможные действия
+    const allCandidates = [];
+
     for (const friendDigit of digitsToTry) {
       // Пробуем сложение
       if (!onlySubtraction && (isFirst || true)) {
         const action = this._tryGenerateFriendAddition(friendDigit, states, isFirst, lastActions);
-        if (action) return action;
+        if (action) allCandidates.push(action);
       }
 
       // Пробуем вычитание
       if (!onlyAddition && !isFirst) {
         const action = this._tryGenerateFriendSubtraction(friendDigit, states, lastActions);
-        if (action) return action;
+        if (action) allCandidates.push(action);
       }
     }
 
-    return null;
+    if (allCandidates.length === 0) {
+      return null;
+    }
+
+    // 🔥 ПРИОРИТИЗАЦИЯ: фильтруем неиспользованные действия
+    if (lastActions.length > 0 && allCandidates.length > 1) {
+      const usedAbsValues = new Set(lastActions.map(v => Math.abs(v)));
+      const unusedCandidates = allCandidates.filter(action => !usedAbsValues.has(Math.abs(action.value)));
+
+      if (unusedCandidates.length > 0) {
+        this._log(`✨ Friends: приоритизируем ${unusedCandidates.length} неиспользованных из ${allCandidates.length}`);
+        return unusedCandidates[Math.floor(Math.random() * unusedCandidates.length)];
+      }
+    }
+
+    // Fallback: возвращаем любое доступное
+    return allCandidates[Math.floor(Math.random() * allCandidates.length)];
   }
 
   /**
@@ -1052,6 +1071,19 @@ export class FriendsExampleGenerator {
       // Используем отфильтрованный список только если в нём что-то осталось
       if (filtered.length > 0) {
         filteredActions = filtered;
+      }
+    }
+
+    // 🔥 ПРИОРИТИЗАЦИЯ: предпочитаем неиспользованные действия
+    if (lastActions.length > 0 && filteredActions.length > 1) {
+      const usedAbsValues = new Set(lastActions.map(v => Math.abs(v)));
+      const unusedActions = filteredActions.filter(action => !usedAbsValues.has(Math.abs(action)));
+
+      if (unusedActions.length > 0) {
+        filteredActions = unusedActions;
+        this._log(`✨ Simple: приоритизируем ${unusedActions.length} неиспользованных`);
+      } else {
+        this._log(`🔄 Simple: fallback - все уже были использованы`);
       }
     }
 
