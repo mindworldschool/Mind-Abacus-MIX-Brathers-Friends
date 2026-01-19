@@ -337,6 +337,31 @@ export class UnifiedSimpleRule extends BaseRule {
       }
     }
 
+    // 🔥 ПРИОРИТИЗАЦИЯ: предпочитаем действия с неиспользованными абсолютными значениями
+    if (previousSteps.length > 0 && filteredActions.length > 1) {
+      // Собираем все использованные абсолютные значения
+      const usedAbsValues = new Set();
+      for (const step of previousSteps) {
+        const stepValue = step.action ?? step;
+        const absValue = Math.abs(typeof stepValue === 'object' ? stepValue.value : stepValue);
+        usedAbsValues.add(absValue);
+      }
+
+      // Фильтруем действия, которые ещё не использовались
+      const unusedActions = filteredActions.filter(action => {
+        const currentValue = typeof action === 'object' ? action.value : action;
+        return !usedAbsValues.has(Math.abs(currentValue));
+      });
+
+      // Если есть неиспользованные действия - приоритизируем их
+      if (unusedActions.length > 0) {
+        filteredActions = unusedActions;
+        this._log(`✨ Приоритизация: ${unusedActions.length} неиспользованных действий`);
+      } else {
+        this._log(`🔄 Fallback: используем любые доступные действия (все уже были)`);
+      }
+    }
+
     // Лог для отладки
     const stateStr = Array.isArray(currentState)
       ? `[${currentState.join(", ")}]`
