@@ -163,10 +163,11 @@ export class BrothersRule extends BaseRule {
    *
    * @param {number} currentState - Текущее состояние (0-9)
    * @param {boolean} isFirstAction - Это первый шаг?
+   * @param {number} position - Позиция разряда (для совместимости, не используется в одноразрядном режиме)
    * @param {*} fullState - Полное состояние (для совместимости с ExampleGenerator, не используется)
    * @param {Array} previousSteps - История предыдущих шагов для проверки повторов
    */
-  getAvailableActions(currentState, isFirstAction = false, fullState = null, previousSteps = []) {
+  getAvailableActions(currentState, isFirstAction = false, position = 0, fullState = null, previousSteps = []) {
     const { onlyAddition, onlySubtraction, brothersDigits, simpleBlockDigits } = this.config;
     const v = currentState;
     const brotherActions = [];
