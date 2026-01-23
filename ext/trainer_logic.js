@@ -248,6 +248,30 @@ export function mountTrainerUI(container, {
     const abacusColumns = digits + 1;
     const displayMode = st.inline ? "inline" : "column";
 
+    // ====== ПРЕОБРАЗОВАНИЕ ОГРАНИЧЕНИЯ ВРЕМЕНИ ======
+    // timeLimit может быть: "off", "none", "1:00", "1:30", "2:00" и т.д.
+    // Преобразуем в timeLimitEnabled и timePerExampleMs для таймера на всю серию
+    if (st.timeLimit && st.timeLimit !== "off" && st.timeLimit !== "none") {
+      // Парсим формат "MM:SS"
+      const parts = st.timeLimit.split(':');
+      if (parts.length === 2) {
+        const minutes = parseInt(parts[0], 10) || 0;
+        const seconds = parseInt(parts[1], 10) || 0;
+        const totalMs = (minutes * 60 + seconds) * 1000;
+
+        st.timeLimitEnabled = true;
+        st.timePerExampleMs = totalMs;
+
+        logger.info(CONTEXT, `Time limit enabled: ${st.timeLimit} (${totalMs}ms)`);
+      } else {
+        st.timeLimitEnabled = false;
+        st.timePerExampleMs = 0;
+      }
+    } else {
+      st.timeLimitEnabled = false;
+      st.timePerExampleMs = 0;
+    }
+
     // ====== РЕЖИМ ЗАПУСКА: обычный или retry после "Исправить ошибки"
     const isRetryStartup =
       retryMode?.enabled && Array.isArray(retryMode.examples);
