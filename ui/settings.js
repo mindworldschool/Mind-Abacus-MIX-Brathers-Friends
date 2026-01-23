@@ -195,7 +195,8 @@ function createBlockCard({
   onUpdate,
   allLabel,
   additionLabel,
-  subtractionLabel
+  subtractionLabel,
+  showSignToggles = true
 }) {
   const card = document.createElement("div");
   card.className = "block-card";
@@ -282,29 +283,32 @@ function createBlockCard({
   card.append(header, digitWrap);
   updateAllToggle();
 
-  const footer = document.createElement("div");
-  footer.className = "block-card__footer";
+  // Показываем чекбоксы только для блоков, которые их используют (не для "Просто")
+  if (showSignToggles) {
+    const footer = document.createElement("div");
+    footer.className = "block-card__footer";
 
-  const additionToggle = createCheckbox(
-    additionLabel,
-    stateBlock.onlyAddition,
-    (checked) => {
-      onUpdate({ onlyAddition: checked });
-    },
-    "settings-checkbox settings-checkbox--outline"
-  );
+    const additionToggle = createCheckbox(
+      additionLabel,
+      stateBlock.onlyAddition,
+      (checked) => {
+        onUpdate({ onlyAddition: checked });
+      },
+      "settings-checkbox settings-checkbox--outline"
+    );
 
-  const subtractionToggle = createCheckbox(
-    subtractionLabel,
-    stateBlock.onlySubtraction,
-    (checked) => {
-      onUpdate({ onlySubtraction: checked });
-    },
-    "settings-checkbox settings-checkbox--outline"
-  );
+    const subtractionToggle = createCheckbox(
+      subtractionLabel,
+      stateBlock.onlySubtraction,
+      (checked) => {
+        onUpdate({ onlySubtraction: checked });
+      },
+      "settings-checkbox settings-checkbox--outline"
+    );
 
-  footer.append(additionToggle, subtractionToggle);
-  card.appendChild(footer);
+    footer.append(additionToggle, subtractionToggle);
+    card.appendChild(footer);
+  }
 
   return card;
 }
@@ -463,6 +467,7 @@ export function renderSettings(container, { t, state, updateSettings, navigate }
       allLabel: t("settings.allLabel"),
       additionLabel: t("settings.onlyAdditionLabel"),
       subtractionLabel: t("settings.onlySubtractionLabel"),
+      showSignToggles: key !== "simple", // Не показываем чекбоксы знака для блока "Просто"
       onUpdate: (changes) => {
         updateSettings({
           blocks: {
