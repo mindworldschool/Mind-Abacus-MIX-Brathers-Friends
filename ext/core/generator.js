@@ -38,6 +38,9 @@ import { MultiDigitGenerator } from "./MultiDigitGenerator.js";
 export function generateExample(settings = {}) {
   try {
 if (!settings.silent)     console.log("🧠 [generator] входные настройки:", settings);
+if (!settings.silent)     console.log("🔍 [generator] settings.toggles:", settings.toggles);
+if (!settings.silent)     console.log("🔍 [generator] settings.toggles?.mirror:", settings.toggles?.mirror);
+if (!settings.silent)     console.log("🔍 [generator] settings.toggles?.round:", settings.toggles?.round);
 if (!settings.silent)     console.log("🔍 [generator] settings.blocks:", settings.blocks);
 if (!settings.silent)     console.log("🔍 [generator] settings.blocks?.simple?.digits:", settings.blocks?.simple?.digits);
 if (!settings.silent)     console.log("🔍 [generator] settings.actions:", settings.actions);
