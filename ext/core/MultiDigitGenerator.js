@@ -60,6 +60,12 @@ export class MultiDigitGenerator {
   Разрядность примера: ${this.displayDigitCount}
   Выбранные цифры: [${selectedDigits.join(', ')}]
   isBrothers: ${this.isBrothersRule}, isSimple: ${this.isSimpleRule}`);
+
+    this._log(`🔧 MultiDigitGenerator config:`, {
+      mirrorMode: this.config.mirrorMode,
+      roundMode: this.config.roundMode,
+      dictationMode: this.config.dictationMode
+    });
   }
 
   // Утилиты для логирования с учетом флага silent
@@ -195,9 +201,19 @@ export class MultiDigitGenerator {
    * Например: 11, 22, 33, 111, 222, и т.д.
    */
   _generateMirrorNumber(actionsPerPosition, states, isFirst) {
+    this._log(`🪞 _generateMirrorNumber: вход`);
+    this._log(`   actionsPerPosition:`, actionsPerPosition);
+    this._log(`   states:`, states);
+    this._log(`   displayDigitCount:`, this.displayDigitCount);
+
     // Берем действия для первого разряда как базу
     const firstPositionActions = actionsPerPosition[0];
-    if (!firstPositionActions || firstPositionActions.length === 0) return null;
+    if (!firstPositionActions || firstPositionActions.length === 0) {
+      this._warn(`⚠️ Нет действий для первого разряда`);
+      return null;
+    }
+
+    this._log(`   firstPositionActions:`, firstPositionActions);
 
     // Проверяем, какие действия возможны для ВСЕХ разрядов
     const commonActions = firstPositionActions.filter(action => {
@@ -216,7 +232,12 @@ export class MultiDigitGenerator {
       return true;
     });
 
-    if (commonActions.length === 0) return null;
+    this._log(`   commonActions (доступны для всех разрядов):`, commonActions);
+
+    if (commonActions.length === 0) {
+      this._warn(`⚠️ Нет общих действий для всех разрядов`);
+      return null;
+    }
 
     // Выбираем случайное действие из общих
     const chosenAction = commonActions[Math.floor(Math.random() * commonActions.length)];
@@ -245,11 +266,22 @@ export class MultiDigitGenerator {
    * Например: 10, 20, 30, 100, 200, и т.д.
    */
   _generateRoundNumber(actionsPerPosition, states, isFirst) {
+    this._log(`🔵 _generateRoundNumber: вход`);
+    this._log(`   actionsPerPosition:`, actionsPerPosition);
+    this._log(`   states:`, states);
+    this._log(`   displayDigitCount:`, this.displayDigitCount);
+
     // Старший разряд = последний в массиве (позиция displayDigitCount - 1)
     const highestPos = this.displayDigitCount - 1;
     const highestActions = actionsPerPosition[highestPos];
 
-    if (!highestActions || highestActions.length === 0) return null;
+    this._log(`   highestPos:`, highestPos);
+    this._log(`   highestActions:`, highestActions);
+
+    if (!highestActions || highestActions.length === 0) {
+      this._warn(`⚠️ Нет действий для старшего разряда`);
+      return null;
+    }
 
     // Фильтруем действия, которые дадут валидное состояние
     const validActions = highestActions.filter(action => {
@@ -257,7 +289,12 @@ export class MultiDigitGenerator {
       return newState >= 0 && newState <= 9 && action !== 0;
     });
 
-    if (validActions.length === 0) return null;
+    this._log(`   validActions:`, validActions);
+
+    if (validActions.length === 0) {
+      this._warn(`⚠️ Нет валидных действий для старшего разряда`);
+      return null;
+    }
 
     // Выбираем случайное действие
     const chosenAction = validActions[Math.floor(Math.random() * validActions.length)];
@@ -292,6 +329,9 @@ export class MultiDigitGenerator {
     // 🪞 Проверяем режимы зеркала и круглых чисел
     const mirrorMode = this.config.mirrorMode === true;
     const roundMode = this.config.roundMode === true;
+
+    this._log(`🔍 _generateDigits: mirrorMode=${mirrorMode}, roundMode=${roundMode}, displayDigitCount=${this.displayDigitCount}`);
+    this._log(`🔍 config:`, this.config);
 
     const allowDuplicates = Math.random() < this.config.duplicateDigitProbability;
 
@@ -336,12 +376,20 @@ export class MultiDigitGenerator {
 
     // 🪞 ЗЕРКАЛЬНЫЙ РЕЖИМ: все разряды должны иметь одинаковые действия
     if (mirrorMode && this.displayDigitCount >= 2) {
-      return this._generateMirrorNumber(actionsPerPosition, states, isFirst);
+      this._log(`🪞 Вызываем _generateMirrorNumber`);
+      const mirrorResult = this._generateMirrorNumber(actionsPerPosition, states, isFirst);
+      this._log(`🪞 Результат _generateMirrorNumber:`, mirrorResult);
+      if (mirrorResult) return mirrorResult;
+      this._warn(`⚠️ _generateMirrorNumber вернул null, переходим к обычной генерации`);
     }
 
     // 🔵 КРУГЛЫЕ ЧИСЛА: только старший разряд ненулевой
     if (roundMode && this.displayDigitCount >= 2) {
-      return this._generateRoundNumber(actionsPerPosition, states, isFirst);
+      this._log(`🔵 Вызываем _generateRoundNumber`);
+      const roundResult = this._generateRoundNumber(actionsPerPosition, states, isFirst);
+      this._log(`🔵 Результат _generateRoundNumber:`, roundResult);
+      if (roundResult) return roundResult;
+      this._warn(`⚠️ _generateRoundNumber вернул null, переходим к обычной генерации`);
     }
 
     // Знаки
