@@ -211,11 +211,61 @@ export class ExampleGenerator {
         actionsPerDigit.push(acts.length > 0 ? acts : [0]);
       }
 
+      // 🪞 ЗЕРКАЛЬНЫЕ ЧИСЛА: все разряды изменяются одинаково
+      const mirrorMode = this.rule.config?.mirrorMode === true;
+      const roundMode = this.rule.config?.roundMode === true;
+
       // Если combineLevels → генерим единый вектор
       // Если нет → только один разряд "двигается"
       let chosenVector;
 
-      if (combineLevels) {
+      if (mirrorMode && digitCount >= 2) {
+        // 🪞 ЗЕРКАЛЬНЫЙ РЕЖИМ: все разряды изменяются на одно и то же значение
+        // Берем доступные действия для первого разряда
+        const firstDigitActions = actionsPerDigit[0].filter(a => a !== 0);
+
+        if (firstDigitActions.length === 0) break;
+
+        // Выбираем случайное действие
+        const chosenAction = firstDigitActions[Math.floor(Math.random() * firstDigitActions.length)];
+
+        // Проверяем, что это действие возможно для ВСЕХ разрядов
+        let validForAll = true;
+        for (let pos = 0; pos < digitCount; pos++) {
+          const newValue = currentState[pos] + chosenAction;
+          if (newValue < 0 || newValue > 9) {
+            validForAll = false;
+            break;
+          }
+          // Также проверяем, что это действие есть в списке доступных для этого разряда
+          if (!actionsPerDigit[pos].includes(chosenAction)) {
+            validForAll = false;
+            break;
+          }
+        }
+
+        if (!validForAll) {
+          // Действие невозможно для всех разрядов, пропускаем этот шаг
+          continue;
+        }
+
+        // Создаем вектор с одинаковыми значениями для всех разрядов
+        chosenVector = Array(digitCount).fill(chosenAction);
+      } else if (roundMode && digitCount >= 2) {
+        // 🔵 КРУГЛЫЕ ЧИСЛА: изменяется только старший разряд, остальные = 0
+        // Старший разряд = последний в массиве (позиция digitCount - 1)
+        const highestPos = digitCount - 1;
+        const highestDigitActions = actionsPerDigit[highestPos].filter(a => a !== 0);
+
+        if (highestDigitActions.length === 0) break;
+
+        // Выбираем случайное действие для старшего разряда
+        const chosenAction = highestDigitActions[Math.floor(Math.random() * highestDigitActions.length)];
+
+        // Создаем вектор: 0 для всех разрядов, кроме старшего
+        chosenVector = Array(digitCount).fill(0);
+        chosenVector[highestPos] = chosenAction;
+      } else if (combineLevels) {
         // декартово произведение
         const combinations = this._cartesian(actionsPerDigit);
         if (combinations.length === 0) break;
