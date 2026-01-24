@@ -308,6 +308,10 @@ if (!settings.silent)       console.log("   📌 Только вычитание
         avoidRepeatWindow: 3, // окно для избежания повторов
         onlyAddition: blocks?.mix?.onlyAddition ?? false,
         onlySubtraction: blocks?.mix?.onlySubtraction ?? false,
+        // расширенные параметры
+        mirrorMode: mirrorMode,
+        roundMode: roundMode,
+        dictationMode: dictationMode,
         silent: settings.silent || false
       });
 
@@ -347,6 +351,10 @@ if (!settings.silent)       console.log("   📌 Только вычитание
         stepsCount: maxSteps, // ← ИСПРАВЛЕНО: используем stepsCount вместо minSteps/maxSteps
         onlyAddition: blocks?.friends?.onlyAddition ?? false,
         onlySubtraction: blocks?.friends?.onlySubtraction ?? false,
+        // расширенные параметры
+        mirrorMode: mirrorMode,
+        roundMode: roundMode,
+        dictationMode: dictationMode,
         silent: settings.silent || false,  // Передаем флаг тихого режима
         blocks: blocks
       });
@@ -385,6 +393,10 @@ if (!settings.silent)       console.log("   📌 Только вычитание
         digitCount: 1, // Базовое правило всегда для 1 разряда
         combineLevels: combineLevels,
         blocks: blocks,
+        // расширенные параметры
+        mirrorMode: mirrorMode,
+        roundMode: roundMode,
+        dictationMode: dictationMode,
         silent: settings.silent || false  // Флаг тихого режима
       };
 
