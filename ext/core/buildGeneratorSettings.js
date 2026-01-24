@@ -86,6 +86,9 @@ export function buildGeneratorSettingsFromSettings(st = {}) {
       infinite: actionsCfg.infinite === true
     },
 
+    // === РАСШИРЕННЫЕ ПАРАМЕТРЫ (TOGGLES) ===
+    toggles: st.toggles ?? {},
+
     digits: st.digits,
     combineLevels: st.combineLevels || false
   };
