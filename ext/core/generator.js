@@ -425,13 +425,23 @@ if (!settings.silent)         console.log(`   📌 Переменная разр
       }
 
       // Многоразрядный режим - используем MultiDigitGenerator
-      rule = new MultiDigitGenerator(RuleClass, effectiveDigitCount, {
+      const multiDigitConfig = {
         ...ruleConfigForClass,
         variableDigitCounts: combineLevels, // Переключатель из UI
         minSteps: minSteps,
         maxSteps: maxSteps,
         originalDigitCount: digitCount // Сохраняем оригинальную разрядность для контроля действий
+      };
+
+if (!settings.silent)       console.log(`🔧 [generator] Конфигурация для MultiDigitGenerator:`, {
+        mirrorMode: multiDigitConfig.mirrorMode,
+        roundMode: multiDigitConfig.roundMode,
+        dictationMode: multiDigitConfig.dictationMode,
+        digitCount: multiDigitConfig.digitCount,
+        effectiveDigitCount: effectiveDigitCount
       });
+
+      rule = new MultiDigitGenerator(RuleClass, effectiveDigitCount, multiDigitConfig);
     } else {
 if (!settings.silent)       console.log("🔤 [generator] Режим ОДНОРАЗРЯДНЫЙ");
 
