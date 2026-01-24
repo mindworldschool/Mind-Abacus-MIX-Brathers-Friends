@@ -186,6 +186,20 @@ if (!settings.silent)     console.log(`🔍 [generator] Проверка акт�
     });
 
     //
+    // 6.5. Расширенные параметры (toggles)
+    //
+    const toggles = settings.toggles ?? {};
+    const mirrorMode = toggles.mirror === true;
+    const roundMode = toggles.round === true;
+    const dictationMode = toggles.dictation === true;
+
+if (!settings.silent)     console.log(`🔍 [generator] Расширенные параметры:`, {
+      mirrorMode,
+      roundMode,
+      dictationMode
+    });
+
+    //
     // 7. Собираем конфигурацию для правил.
     //
     // Эта конфигурация используется как для UnifiedSimpleRule, так и для других правил.
@@ -209,6 +223,11 @@ if (!settings.silent)     console.log(`🔍 [generator] Проверка акт�
       // ограничения направления
       onlyAddition: onlyAddition,
       onlySubtraction: onlySubtraction,
+
+      // расширенные параметры
+      mirrorMode: mirrorMode,
+      roundMode: roundMode,
+      dictationMode: dictationMode,
 
       // методическое правило блока "Просто":
       firstActionMustBePositive: true,
