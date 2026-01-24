@@ -175,19 +175,104 @@ export class MultiDigitGenerator {
 
   _generateMultiDigitAction(states, isFirst, previousSteps) {
     const maxAttempts = 100;
-    
+
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
       const digitCount = this._chooseDigitCount(isFirst);
       const result = this._generateDigits(states, digitCount, isFirst, previousSteps);
-      
+
       if (!result) continue;
-      
+
       if (this._validateMultiDigitAction(result, states, isFirst)) {
         return result;
       }
     }
-    
+
     return null;
+  }
+
+  /**
+   * 🪞 Генерация зеркального числа (все разряды одинаковые)
+   * Например: 11, 22, 33, 111, 222, и т.д.
+   */
+  _generateMirrorNumber(actionsPerPosition, states, isFirst) {
+    // Берем действия для первого разряда как базу
+    const firstPositionActions = actionsPerPosition[0];
+    if (!firstPositionActions || firstPositionActions.length === 0) return null;
+
+    // Проверяем, какие действия возможны для ВСЕХ разрядов
+    const commonActions = firstPositionActions.filter(action => {
+      // Проверяем, что это действие доступно для всех разрядов
+      for (let pos = 0; pos < this.displayDigitCount; pos++) {
+        const posActions = actionsPerPosition[pos];
+        if (!posActions || !posActions.includes(action)) {
+          return false;
+        }
+        // Также проверяем, что результат будет в границах 0-9
+        const newState = states[pos] + action;
+        if (newState < 0 || newState > 9) {
+          return false;
+        }
+      }
+      return true;
+    });
+
+    if (commonActions.length === 0) return null;
+
+    // Выбираем случайное действие из общих
+    const chosenAction = commonActions[Math.floor(Math.random() * commonActions.length)];
+
+    // Создаем зеркальное число: все разряды = chosenAction
+    const digits = Array(this.maxDigitCount).fill(0);
+    for (let pos = 0; pos < this.displayDigitCount; pos++) {
+      digits[pos] = chosenAction;
+    }
+
+    // Вычисляем значение
+    let value = 0;
+    for (let pos = 0; pos < this.displayDigitCount; pos++) {
+      value += Math.abs(chosenAction) * Math.pow(10, pos);
+    }
+
+    const sign = Math.sign(chosenAction);
+
+    this._log(`🪞 Зеркальное число: ${sign > 0 ? '+' : ''}${value} (все разряды: ${chosenAction})`);
+
+    return { value, sign, digits, digitCount: this.displayDigitCount };
+  }
+
+  /**
+   * 🔵 Генерация круглого числа (только старший разряд ненулевой)
+   * Например: 10, 20, 30, 100, 200, и т.д.
+   */
+  _generateRoundNumber(actionsPerPosition, states, isFirst) {
+    // Старший разряд = последний в массиве (позиция displayDigitCount - 1)
+    const highestPos = this.displayDigitCount - 1;
+    const highestActions = actionsPerPosition[highestPos];
+
+    if (!highestActions || highestActions.length === 0) return null;
+
+    // Фильтруем действия, которые дадут валидное состояние
+    const validActions = highestActions.filter(action => {
+      const newState = states[highestPos] + action;
+      return newState >= 0 && newState <= 9 && action !== 0;
+    });
+
+    if (validActions.length === 0) return null;
+
+    // Выбираем случайное действие
+    const chosenAction = validActions[Math.floor(Math.random() * validActions.length)];
+
+    // Создаем круглое число: только старший разряд ненулевой
+    const digits = Array(this.maxDigitCount).fill(0);
+    digits[highestPos] = chosenAction;
+
+    // Вычисляем значение (например, для 2 разрядов: 3 * 10^1 = 30)
+    const value = Math.abs(chosenAction) * Math.pow(10, highestPos);
+    const sign = Math.sign(chosenAction);
+
+    this._log(`🔵 Круглое число: ${sign > 0 ? '+' : ''}${value} (старший разряд: ${chosenAction})`);
+
+    return { value, sign, digits, digitCount: this.displayDigitCount };
   }
 
   _chooseDigitCount(isFirst) {
@@ -204,8 +289,12 @@ export class MultiDigitGenerator {
   }
 
   _generateDigits(states, digitCount, isFirst, previousSteps) {
+    // 🪞 Проверяем режимы зеркала и круглых чисел
+    const mirrorMode = this.config.mirrorMode === true;
+    const roundMode = this.config.roundMode === true;
+
     const allowDuplicates = Math.random() < this.config.duplicateDigitProbability;
-    
+
     const actionsPerPosition = [];
     
     for (let pos = 0; pos < this.displayDigitCount; pos++) {
@@ -244,7 +333,17 @@ export class MultiDigitGenerator {
     
     const hasAnyActions = actionsPerPosition.some(arr => arr.length > 0);
     if (!hasAnyActions) return null;
-    
+
+    // 🪞 ЗЕРКАЛЬНЫЙ РЕЖИМ: все разряды должны иметь одинаковые действия
+    if (mirrorMode && this.displayDigitCount >= 2) {
+      return this._generateMirrorNumber(actionsPerPosition, states, isFirst);
+    }
+
+    // 🔵 КРУГЛЫЕ ЧИСЛА: только старший разряд ненулевой
+    if (roundMode && this.displayDigitCount >= 2) {
+      return this._generateRoundNumber(actionsPerPosition, states, isFirst);
+    }
+
     // Знаки
     const possibleSigns = new Set();
     for (const actions of actionsPerPosition) {
