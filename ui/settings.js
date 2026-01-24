@@ -431,8 +431,16 @@ export function renderSettings(container, { t, state, updateSettings, navigate }
   const toggleList = document.createElement("div");
   toggleList.className = "toggle-list";
 
+  // Разрешенные toggles для отображения
+  const allowedToggles = ["mirror", "round", "dictation"];
+
   const toggleTranslations = t("settings.toggles");
   Object.entries(toggleTranslations).forEach(([key, label]) => {
+    // Показываем только разрешенные toggles
+    if (!allowedToggles.includes(key)) {
+      return;
+    }
+
     const toggle = createCheckbox(
       label,
       Boolean(settingsState.toggles[key]),
