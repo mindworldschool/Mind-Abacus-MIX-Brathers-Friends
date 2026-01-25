@@ -278,9 +278,14 @@ export class MultiDigitGenerator {
     this._log(`   текущие states:`, states);
 
     // 1. Берём selectedDigits из конфигурации (как в блоке "Просто")
-    const selectedDigits = this.config.selectedDigits ||
-                          this.baseRule.config?.selectedDigits ||
-                          [1, 2, 3, 4, 5, 6, 7, 8, 9];
+    // Проверяем что массив не пустой, иначе используем дефолт
+    let selectedDigits = this.config.selectedDigits;
+    if (!selectedDigits || selectedDigits.length === 0) {
+      selectedDigits = this.baseRule.config?.selectedDigits;
+    }
+    if (!selectedDigits || selectedDigits.length === 0) {
+      selectedDigits = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+    }
 
     this._log(`   selectedDigits:`, selectedDigits);
 
