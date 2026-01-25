@@ -270,14 +270,22 @@ export class MultiDigitGenerator {
    * - Выбирает случайную цифру
    * - Применяет к старшему разряду
    * - Младшие разряды = 0
+   *
+   * @param {Array} states - текущие состояния разрядов абакуса [0-9, 0-9, ...]
    */
-  _generateRoundNumber() {
+  _generateRoundNumber(states) {
     this._log(`🔵 _generateRoundNumber: упрощённая генерация круглых чисел`);
+    this._log(`   текущие states:`, states);
 
     // 1. Берём selectedDigits из конфигурации (как в блоке "Просто")
-    const selectedDigits = this.config.selectedDigits ||
-                          this.baseRule.config?.selectedDigits ||
-                          [1, 2, 3, 4, 5, 6, 7, 8, 9];
+    // Проверяем что массив не пустой, иначе используем дефолт
+    let selectedDigits = this.config.selectedDigits;
+    if (!selectedDigits || selectedDigits.length === 0) {
+      selectedDigits = this.baseRule.config?.selectedDigits;
+    }
+    if (!selectedDigits || selectedDigits.length === 0) {
+      selectedDigits = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+    }
 
     this._log(`   selectedDigits:`, selectedDigits);
 
@@ -286,27 +294,47 @@ export class MultiDigitGenerator {
       return null;
     }
 
-    // 2. Выбираем случайную цифру
-    const digit = selectedDigits[Math.floor(Math.random() * selectedDigits.length)];
+    // 2. Позиция старшего разряда
+    const highestPos = this.displayDigitCount - 1;
+    const currentState = states[highestPos];
+
+    this._log(`   highestPos: ${highestPos}, currentState: ${currentState}`);
 
     // 3. Определяем знак с учётом onlyAddition/onlySubtraction
     const onlyAddition = this.config.onlyAddition || this.baseRule.config?.onlyAddition || false;
     const onlySubtraction = this.config.onlySubtraction || this.baseRule.config?.onlySubtraction || false;
 
-    let sign;
-    if (onlyAddition) {
-      sign = 1; // только +
-    } else if (onlySubtraction) {
-      sign = -1; // только -
-    } else {
-      sign = Math.random() < 0.5 ? 1 : -1; // случайный знак
+    // 4. Собираем валидные действия
+    const validActions = [];
+
+    for (const digit of selectedDigits) {
+      // Проверяем +digit
+      if (!onlySubtraction) {
+        const newState = currentState + digit;
+        if (newState >= 0 && newState <= 9) {
+          validActions.push(digit);
+        }
+      }
+
+      // Проверяем -digit
+      if (!onlyAddition) {
+        const newState = currentState - digit;
+        if (newState >= 0 && newState <= 9) {
+          validActions.push(-digit);
+        }
+      }
     }
 
-    // 4. Создаём действие для старшего разряда
-    const action = sign * digit;
+    this._log(`   validActions (с учётом currentState):`, validActions);
 
-    // 5. Позиция старшего разряда
-    const highestPos = this.displayDigitCount - 1;
+    if (validActions.length === 0) {
+      this._warn(`⚠️ Нет валидных действий для состояния ${currentState}`);
+      return null;
+    }
+
+    // 5. Выбираем случайное действие
+    const action = validActions[Math.floor(Math.random() * validActions.length)];
+    const sign = Math.sign(action);
 
     // 6. Создаём digits массив: все 0, кроме старшего разряда
     const digits = Array(this.maxDigitCount).fill(0);
@@ -316,7 +344,7 @@ export class MultiDigitGenerator {
     // Например: 3 * 10^1 = 30, 5 * 10^2 = 500
     const value = Math.abs(action) * Math.pow(10, highestPos);
 
-    this._log(`🔵 Круглое число: ${sign > 0 ? '+' : ''}${sign * value} (цифра: ${digit}, знак: ${sign > 0 ? '+' : '-'}, разряд: ${highestPos})`);
+    this._log(`🔵 Круглое число: ${sign > 0 ? '+' : ''}${sign * value} (действие: ${action}, новое состояние: ${currentState + action})`);
     this._log(`   digits:`, digits);
 
     return { value, sign, digits, digitCount: this.displayDigitCount };
@@ -396,7 +424,7 @@ export class MultiDigitGenerator {
     // 🔵 КРУГЛЫЕ ЧИСЛА: только старший разряд ненулевой
     if (roundMode && this.displayDigitCount >= 2) {
       this._log(`🔵 Вызываем _generateRoundNumber`);
-      const roundResult = this._generateRoundNumber(); // Без параметров - использует простую логику
+      const roundResult = this._generateRoundNumber(states); // Передаём states для валидации
       this._log(`🔵 Результат _generateRoundNumber:`, roundResult);
       if (roundResult) return roundResult;
       this._warn(`⚠️ _generateRoundNumber вернул null, переходим к обычной генерации`);
