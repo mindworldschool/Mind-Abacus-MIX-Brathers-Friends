@@ -275,6 +275,10 @@ export class MultiDigitGenerator {
     this._log(`🔵 _generateRoundNumber: генерация через базовое правило "Просто"`);
     this._log(`   текущие states:`, states);
     this._log(`   isFirst:`, isFirst);
+    this._log(`   baseRule:`, this.baseRule);
+    this._log(`   baseRule.config:`, this.baseRule.config);
+    this._log(`   baseRule.config.selectedDigits:`, this.baseRule.config?.selectedDigits);
+    this._log(`   baseRule.config.digitCount:`, this.baseRule.config?.digitCount);
 
     // 1. Позиция старшего разряда
     const highestPos = this.displayDigitCount - 1;
