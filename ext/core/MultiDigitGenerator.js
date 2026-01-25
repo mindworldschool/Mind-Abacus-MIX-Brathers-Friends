@@ -272,6 +272,7 @@ export class MultiDigitGenerator {
    * @param {Boolean} isFirst - первый ли это шаг в примере
    */
   _generateRoundNumber(states, isFirst) {
+    this._log(`🔵🔵🔵 НОВАЯ ВЕРСИЯ v2.0 - ИСПОЛЬЗУЕТ ГЕНЕРАТОР "ПРОСТО" 🔵🔵🔵`);
     this._log(`🔵 _generateRoundNumber: генерация через базовое правило "Просто"`);
     this._log(`   текущие states:`, states);
     this._log(`   isFirst:`, isFirst);
