@@ -272,9 +272,14 @@ export class MultiDigitGenerator {
    * @param {Boolean} isFirst - первый ли это шаг в примере
    */
   _generateRoundNumber(states, isFirst) {
+    this._log(`🔵🔵🔵 НОВАЯ ВЕРСИЯ v2.0 - ИСПОЛЬЗУЕТ ГЕНЕРАТОР "ПРОСТО" 🔵🔵🔵`);
     this._log(`🔵 _generateRoundNumber: генерация через базовое правило "Просто"`);
     this._log(`   текущие states:`, states);
     this._log(`   isFirst:`, isFirst);
+    this._log(`   baseRule:`, this.baseRule);
+    this._log(`   baseRule.config:`, this.baseRule.config);
+    this._log(`   baseRule.config.selectedDigits:`, this.baseRule.config?.selectedDigits);
+    this._log(`   baseRule.config.digitCount:`, this.baseRule.config?.digitCount);
 
     // 1. Позиция старшего разряда
     const highestPos = this.displayDigitCount - 1;
