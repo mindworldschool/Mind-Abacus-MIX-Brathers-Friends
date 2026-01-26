@@ -26,6 +26,7 @@ import { buildGeneratorSettingsFromSettings } from "./core/buildGeneratorSetting
 import { startAnswerTimer, stopAnswerTimer } from "../js/utils/timer.js";
 import { BigStepOverlay } from "../ui/components/BigStepOverlay.js";
 import { playSound } from "../js/utils/sound.js";
+import { speakNumber, initSpeech, stopSpeech, isSpeechSupported } from "../js/utils/speech.js";
 import { logger } from "../core/utils/logger.js";
 import { UI, DEFAULTS } from "../core/utils/constants.js";
 import { eventBus, EVENTS } from "../core/utils/events.js";
@@ -353,6 +354,13 @@ export function mountTrainerUI(container, {
       }
     }
 
+    // ====== ИНИЦИАЛИЗАЦИЯ ОЗВУЧКИ (РЕЖИМ ДИКТАНТ) ======
+    const dictationEnabled = st.dictation === true;
+    if (dictationEnabled && isSpeechSupported()) {
+      initSpeech();
+      logger.info(CONTEXT, "Dictation mode enabled, speech initialized");
+    }
+
     let isShowing = false;
     let showAbort = false;
 
@@ -411,6 +419,12 @@ export function mountTrainerUI(container, {
           const color = isOdd ? "#EC8D00" : "#6db45c";
 
           overlay.show(stepStr, color);
+
+          // Озвучка числа (режим Диктант)
+          if (dictationEnabled && isSpeechSupported()) {
+            speakNumber(stepStr);
+          }
+
           if (beepOnStep) playSound("tick");
           await delay(intervalMs);
           overlay.hide();
@@ -418,6 +432,10 @@ export function mountTrainerUI(container, {
         }
       } finally {
         overlay.clear();
+        // Останавливаем озвучку при завершении
+        if (dictationEnabled) {
+          stopSpeech();
+        }
       }
     }
 
@@ -655,6 +673,7 @@ export function mountTrainerUI(container, {
     function finishTraining() {
       exampleView.stopAnimation();
       stopAnswerTimer();
+      stopSpeech(); // Останавливаем озвучку
       showAbort = true;
       isShowing = false;
       overlay.clear();
@@ -729,6 +748,7 @@ export function mountTrainerUI(container, {
           logger.info(CONTEXT, "Exit trainer clicked");
 
           exampleView.stopAnimation();
+          stopSpeech(); // Останавливаем озвучку
           showAbort = true;
           isShowing = false;
           overlay.clear();
