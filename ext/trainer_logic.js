@@ -355,7 +355,7 @@ export function mountTrainerUI(container, {
     }
 
     // ====== ИНИЦИАЛИЗАЦИЯ ОЗВУЧКИ (РЕЖИМ ДИКТАНТ) ======
-    const dictationEnabled = st.dictation === true;
+    const dictationEnabled = st.toggles?.dictation === true;
     if (dictationEnabled && isSpeechSupported()) {
       initSpeech();
       logger.info(CONTEXT, "Dictation mode enabled, speech initialized");
