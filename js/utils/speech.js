@@ -5,7 +5,7 @@
  * import { speakNumber, initSpeech, isSpeechSupported } from './utils/speech.js';
  *
  * if (isSpeechSupported()) {
- *   initSpeech('ru'); // вызвать один раз при загрузке с кодом языка
+ *   initSpeech('ua'); // вызвать один раз при загрузке с кодом языка
  *   speakNumber('+25'); // озвучить число
  * }
  */
@@ -23,6 +23,14 @@ const LANG_MAP = {
   'es': 'es-ES'   // Испанский
 };
 
+// Альтернативные коды языков для поиска голоса
+const LANG_ALTERNATIVES = {
+  'ua': ['uk-UA', 'uk_UA', 'uk'],
+  'ru': ['ru-RU', 'ru_RU', 'ru'],
+  'en': ['en-US', 'en-GB', 'en_US', 'en'],
+  'es': ['es-ES', 'es-MX', 'es_ES', 'es']
+};
+
 // Локализация слов "плюс" и "минус"
 const SPEECH_WORDS = {
   'ua': { plus: 'плюс', minus: 'мінус' },
@@ -33,12 +41,13 @@ const SPEECH_WORDS = {
 
 // Хранилище настроек
 let speechSettings = {
-  lang: 'ru-RU',
-  appLang: 'ru',
+  lang: 'uk-UA',
+  appLang: 'ua',
   rate: 1.0,
   pitch: 1.0,
   volume: 1.0,
-  voice: null
+  voice: null,
+  forceLanguage: true // Принудительно использовать язык, даже без голоса
 };
 
 // Флаг инициализации
@@ -46,10 +55,10 @@ let initialized = false;
 
 /**
  * Инициализация модуля речи
- * @param {string} [appLanguage='ru'] - Код языка приложения (ua, ru, en, es)
+ * @param {string} [appLanguage='ua'] - Код языка приложения (ua, ru, en, es)
  * @returns {boolean} Успех инициализации
  */
-export function initSpeech(appLanguage = 'ru') {
+export function initSpeech(appLanguage = 'ua') {
   if (!isSpeechSupported()) {
     console.warn('⚠️ Web Speech API не поддерживается в этом браузере');
     return false;
@@ -57,11 +66,12 @@ export function initSpeech(appLanguage = 'ru') {
 
   // Сохраняем язык приложения
   speechSettings.appLang = appLanguage;
-  speechSettings.lang = LANG_MAP[appLanguage] || 'ru-RU';
+  speechSettings.lang = LANG_MAP[appLanguage] || 'uk-UA';
 
   // Ждем загрузки голосов
-  if (speechSynthesis.getVoices().length === 0) {
-    speechSynthesis.addEventListener('voiceschanged', () => selectVoice(appLanguage));
+  const voices = speechSynthesis.getVoices();
+  if (voices.length === 0) {
+    speechSynthesis.addEventListener('voiceschanged', () => selectVoice(appLanguage), { once: true });
   } else {
     selectVoice(appLanguage);
   }
@@ -79,7 +89,7 @@ export function setSpeechLanguage(appLanguage) {
   if (!isSpeechSupported()) return;
 
   speechSettings.appLang = appLanguage;
-  speechSettings.lang = LANG_MAP[appLanguage] || 'ru-RU';
+  speechSettings.lang = LANG_MAP[appLanguage] || 'uk-UA';
   selectVoice(appLanguage);
 
   console.log(`🗣️ Язык озвучки изменён на: ${appLanguage} (${speechSettings.lang})`);
@@ -91,28 +101,42 @@ export function setSpeechLanguage(appLanguage) {
  */
 function selectVoice(appLanguage) {
   const voices = speechSynthesis.getVoices();
-  const targetLang = LANG_MAP[appLanguage] || 'ru-RU';
-  const langPrefix = targetLang.split('-')[0]; // 'uk', 'ru', 'en', 'es'
+  const targetLang = LANG_MAP[appLanguage] || 'uk-UA';
+  const alternatives = LANG_ALTERNATIVES[appLanguage] || [targetLang];
 
-  // Ищем голос для нужного языка
-  let selectedVoice = voices.find(v => v.lang === targetLang);
+  console.log(`🔍 Поиск голоса для ${appLanguage}, доступно голосов: ${voices.length}`);
 
-  // Если точного совпадения нет, ищем по префиксу
-  if (!selectedVoice) {
-    selectedVoice = voices.find(v => v.lang.startsWith(langPrefix));
+  // Выводим все доступные голоса для отладки
+  if (voices.length > 0) {
+    console.log('📋 Доступные голоса:', voices.map(v => `${v.name} (${v.lang})`).join(', '));
   }
 
-  // Если всё ещё нет, берем первый доступный
-  if (!selectedVoice && voices.length > 0) {
-    selectedVoice = voices[0];
-    console.log(`⚠️ Голос для ${appLanguage} не найден, используется: ${selectedVoice.name}`);
+  let selectedVoice = null;
+
+  // Ищем голос по альтернативным кодам языка
+  for (const langCode of alternatives) {
+    selectedVoice = voices.find(v => v.lang === langCode);
+    if (selectedVoice) break;
+
+    // Поиск по началу кода (uk, ru, en, es)
+    const prefix = langCode.split(/[-_]/)[0];
+    selectedVoice = voices.find(v => v.lang.startsWith(prefix + '-') || v.lang.startsWith(prefix + '_') || v.lang === prefix);
+    if (selectedVoice) break;
   }
 
   if (selectedVoice) {
     speechSettings.voice = selectedVoice;
-    speechSettings.lang = selectedVoice.lang;
-    console.log(`🗣️ Выбран голос: ${selectedVoice.name} (${selectedVoice.lang})`);
+    // НЕ меняем speechSettings.lang на язык найденного голоса!
+    // Оставляем целевой язык, чтобы числа читались правильно
+    console.log(`🗣️ Найден голос: ${selectedVoice.name} (${selectedVoice.lang})`);
+  } else {
+    // Голос не найден - НЕ используем fallback на другой язык!
+    speechSettings.voice = null;
+    console.log(`⚠️ Голос для ${appLanguage} не найден. Будет использован системный голос с языком ${targetLang}`);
   }
+
+  // ВАЖНО: Всегда устанавливаем целевой язык, независимо от найденного голоса
+  speechSettings.lang = targetLang;
 }
 
 /**
@@ -122,7 +146,7 @@ function selectVoice(appLanguage) {
  */
 function numberToSpeechText(step) {
   const str = String(step).trim();
-  const words = SPEECH_WORDS[speechSettings.appLang] || SPEECH_WORDS['ru'];
+  const words = SPEECH_WORDS[speechSettings.appLang] || SPEECH_WORDS['ua'];
 
   // Извлекаем знак и число
   let sign = '';
@@ -169,15 +193,17 @@ export function speakNumber(step, options = {}) {
     const text = numberToSpeechText(step);
     const utterance = new SpeechSynthesisUtterance(text);
 
-    // Применяем настройки
+    // ПРИНУДИТЕЛЬНО устанавливаем целевой язык!
     utterance.lang = speechSettings.lang;
     utterance.rate = options.rate ?? speechSettings.rate;
     utterance.pitch = speechSettings.pitch;
     utterance.volume = options.volume ?? speechSettings.volume;
 
-    if (speechSettings.voice) {
-      utterance.voice = speechSettings.voice;
-    }
+    // НЕ устанавливаем voice - пусть браузер сам выберет по lang
+    // Это заставит браузер искать голос для указанного языка
+    // utterance.voice = speechSettings.voice; // ОТКЛЮЧЕНО
+
+    console.log(`🔊 Озвучка: "${text}" язык: ${utterance.lang} (принудительно)`);
 
     // Обработчики событий
     utterance.onend = () => {
