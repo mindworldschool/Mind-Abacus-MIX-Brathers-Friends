@@ -401,6 +401,69 @@ if (!settings.silent)       console.log("📘 [generator] Базовое пра�
       };
     }
 
+    // ============================================================
+    // 🔵 СПЕЦИАЛЬНЫЙ РЕЖИМ: КРУГЛЫЕ ЧИСЛА
+    // ============================================================
+    // Если roundMode=true И digitCount > 1:
+    // - Генерируем ОДНОЗНАЧНЫЙ пример по правилам блока "Просто"
+    // - Умножаем каждый шаг на 10^(digitCount-1)
+    //
+    // Примеры:
+    //   digits=2: +3 → +30, -1 → -10 (добавляем 0)
+    //   digits=3: +3 → +300, -1 → -100 (добавляем 00)
+    //   digits=4: +3 → +3000, -1 → -1000 (добавляем 000)
+    // ============================================================
+
+    if (roundMode === true && digitCount > 1) {
+if (!settings.silent)       console.log(`🔵 [generator] РЕЖИМ КРУГЛЫХ ЧИСЕЛ`);
+if (!settings.silent)       console.log(`   📌 Разрядность: ${digitCount}`);
+if (!settings.silent)       console.log(`   📌 Множитель: ${Math.pow(10, digitCount - 1)}`);
+
+      // 1. Создаём правило "Просто" для ОДНОГО разряда
+      const roundRuleConfig = {
+        ...ruleConfigForClass,
+        digitCount: 1,
+        mirrorMode: false,  // Отключаем, т.к. работаем с 1 разрядом
+        roundMode: false    // Отключаем, т.к. сами обрабатываем
+      };
+
+      const simpleRule = new UnifiedSimpleRule(roundRuleConfig);
+
+      // 2. Генерируем ОДНОЗНАЧНЫЙ пример
+      const gen = new ExampleGenerator(simpleRule);
+      const rawExample = gen.generate();
+      const formatted = gen.toTrainerFormat(rawExample);
+
+      // 3. Вычисляем множитель: 10^(digitCount-1)
+      //    digits=2 → 10, digits=3 → 100, digits=4 → 1000
+      const multiplier = Math.pow(10, digitCount - 1);
+
+      // 4. Умножаем каждый шаг на множитель
+      const roundSteps = formatted.steps.map(step => {
+        if (typeof step === 'string') {
+          // Парсим строку типа "+3" или "-7"
+          const value = parseInt(step, 10);
+          const roundValue = value * multiplier;
+          return roundValue >= 0 ? `+${roundValue}` : `${roundValue}`;
+        }
+        // Если объект (братья/друзья) - не должно быть в режиме Просто
+        return step;
+      });
+
+      // 5. Умножаем ответ на множитель
+      const roundAnswer = formatted.answer * multiplier;
+
+if (!settings.silent)       console.log(`✅ [generator] Круглые числа готовы:`);
+if (!settings.silent)       console.log(`   Исходный: ${JSON.stringify(formatted.steps)} = ${formatted.answer}`);
+if (!settings.silent)       console.log(`   Круглый:  ${JSON.stringify(roundSteps)} = ${roundAnswer}`);
+
+      return {
+        start: 0,
+        steps: roundSteps,
+        answer: roundAnswer
+      };
+    }
+
     // === ВЫБИРАЕМ ОДНОРАЗРЯДНОЕ ИЛИ МНОГОРАЗРЯДНОЕ ===
 
     // 🔴 СПЕЦИАЛЬНАЯ ЛОГИКА ДЛЯ ДРУЗЕЙ:
