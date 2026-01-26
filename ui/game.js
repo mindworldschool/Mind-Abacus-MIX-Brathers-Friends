@@ -120,7 +120,10 @@ export async function renderGame(container, { t, state, navigate }) {
 
     const cleanupTrainer = module.mountTrainerUI(body, {
       t,
-      state: { settings: effectiveSettings },
+      state: {
+        settings: effectiveSettings,
+        language: state.language || globalState.language || 'ru'
+      },
 
       retryMode: globalState.retryMode || {
         enabled: false,
