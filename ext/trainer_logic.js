@@ -529,10 +529,14 @@ export function mountTrainerUI(container, {
       const input = document.getElementById("answer-input");
       if (input) input.value = "";
 
-      const shouldUseDictation = actionsLen > 12;
-      const effectiveShowSpeed = shouldUseDictation
-        ? 2000
-        : (st.showSpeedMs || 0);
+      // Режим пошагового показа: если много действий ИЛИ включён диктант
+      const shouldUseStepByStep = actionsLen > 12 || dictationEnabled;
+
+      // Скорость показа: для диктанта используем 1500мс по умолчанию
+      const effectiveShowSpeed = dictationEnabled
+        ? (st.showSpeedMs || 1500)
+        : (actionsLen > 12 ? 2000 : (st.showSpeedMs || 0));
+
       const showSpeedActive =
         st.showSpeedEnabled && effectiveShowSpeed > 0;
 
@@ -542,7 +546,8 @@ export function mountTrainerUI(container, {
         return String(step);
       });
 
-      if (showSpeedActive || shouldUseDictation) {
+      // Пошаговый показ если: скорость включена ИЛИ много действий ИЛИ диктант
+      if (showSpeedActive || shouldUseStepByStep) {
         const area = document.getElementById("area-example");
         if (area) area.innerHTML = "";
       } else {
@@ -555,7 +560,7 @@ export function mountTrainerUI(container, {
       const lockDuringShow = st.lockInputDuringShow !== false;
       if (input) input.disabled = lockDuringShow;
 
-      if (showSpeedActive || shouldUseDictation) {
+      if (showSpeedActive || shouldUseStepByStep) {
         isShowing = true;
         showAbort = false;
         await playSequential(
