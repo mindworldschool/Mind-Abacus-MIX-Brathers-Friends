@@ -193,19 +193,17 @@ export function speakNumber(step, options = {}) {
     const text = numberToSpeechText(step);
     const utterance = new SpeechSynthesisUtterance(text);
 
-    // ВАЖНО: Всегда устанавливаем целевой язык!
+    // ПРИНУДИТЕЛЬНО устанавливаем целевой язык!
     utterance.lang = speechSettings.lang;
     utterance.rate = options.rate ?? speechSettings.rate;
     utterance.pitch = speechSettings.pitch;
     utterance.volume = options.volume ?? speechSettings.volume;
 
-    // Устанавливаем голос только если он соответствует нужному языку
-    if (speechSettings.voice && speechSettings.voice.lang.startsWith(speechSettings.lang.split('-')[0])) {
-      utterance.voice = speechSettings.voice;
-    }
-    // Если голос не соответствует - не устанавливаем его, пусть браузер выберет по lang
+    // НЕ устанавливаем voice - пусть браузер сам выберет по lang
+    // Это заставит браузер искать голос для указанного языка
+    // utterance.voice = speechSettings.voice; // ОТКЛЮЧЕНО
 
-    console.log(`🔊 Озвучка: "${text}" язык: ${utterance.lang}, голос: ${utterance.voice?.name || 'системный'}`);
+    console.log(`🔊 Озвучка: "${text}" язык: ${utterance.lang} (принудительно)`);
 
     // Обработчики событий
     utterance.onend = () => {
