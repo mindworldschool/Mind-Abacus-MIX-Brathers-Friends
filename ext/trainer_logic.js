@@ -282,6 +282,24 @@ export function mountTrainerUI(container, {
       st.timePerExampleMs = 0;
     }
 
+    // ====== ПРЕОБРАЗОВАНИЕ СКОРОСТИ ПОКАЗА ======
+    // speed может быть: "none", "0.1", "0.2", ... "0.9" (в секундах)
+    // Преобразуем в showSpeedEnabled и showSpeedMs
+    if (st.speed && st.speed !== "none") {
+      const speedSeconds = parseFloat(st.speed);
+      if (!isNaN(speedSeconds) && speedSeconds > 0) {
+        st.showSpeedEnabled = true;
+        st.showSpeedMs = Math.round(speedSeconds * 1000);
+        logger.info(CONTEXT, `Show speed enabled: ${st.speed}s (${st.showSpeedMs}ms)`);
+      } else {
+        st.showSpeedEnabled = false;
+        st.showSpeedMs = 0;
+      }
+    } else {
+      st.showSpeedEnabled = false;
+      st.showSpeedMs = 0;
+    }
+
     // ====== РЕЖИМ ЗАПУСКА: обычный или retry после "Исправить ошибки"
     const isRetryStartup =
       retryMode?.enabled && Array.isArray(retryMode.examples);
