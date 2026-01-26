@@ -208,6 +208,15 @@ function createAbacusWrapper() {
   wrapper.id = "abacus-wrapper";
   wrapper.className = "abacus-wrapper";
 
+  // Кнопка сброса (слева)
+  const resetBtn = document.createElement("button");
+  resetBtn.id = "abacus-reset";
+  resetBtn.className = "abacus-reset-btn";
+  resetBtn.innerHTML = "&#x21bb;"; // ↻ символ обновления
+  resetBtn.setAttribute("aria-label", "Reset abacus");
+  resetBtn.type = "button";
+
+  // Кнопка закрытия (справа)
   const closeBtn = document.createElement("button");
   closeBtn.id = "abacus-close";
   closeBtn.className = "abacus-close-btn";
@@ -219,7 +228,7 @@ function createAbacusWrapper() {
   abacusContainer.id = "floating-abacus-container";
   abacusContainer.className = "abacus-container";
 
-  wrapper.append(closeBtn, abacusContainer);
+  wrapper.append(resetBtn, closeBtn, abacusContainer);
 
   return wrapper;
 }
@@ -685,6 +694,8 @@ export function mountTrainerUI(container, {
         document.getElementById("btn-exit-trainer");
       const abacusCloseBtn =
         document.getElementById("abacus-close");
+      const abacusResetBtn =
+        document.getElementById("abacus-reset");
       const btnSubmit =
         document.getElementById("btn-submit");
 
@@ -736,6 +747,13 @@ export function mountTrainerUI(container, {
             btn.textContent =
               t?.("trainer.showAbacus") || "🧮 Показать абакус";
           }
+        });
+      }
+
+      // Кнопка сброса бусин абакуса
+      if (abacusResetBtn) {
+        abacusResetBtn.addEventListener("click", () => {
+          abacus.reset();
         });
       }
     }
