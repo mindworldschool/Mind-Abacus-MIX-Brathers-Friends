@@ -158,9 +158,19 @@ export class MultiDigitGenerator {
         this._log(`  ⚠️ Переполнение разрядности! Пропускаем шаг.`);
         continue;
       }
-      
+
+      // 🔴 КРИТИЧНО: Запрет повторов - нельзя +N и сразу -N (или наоборот)
+      const newActionValue = result.sign * result.value;
+      if (steps.length > 0) {
+        const lastAction = steps[steps.length - 1].action;
+        if (Math.abs(newActionValue) === Math.abs(lastAction)) {
+          this._log(`  ⚠️ Повтор по модулю! ${newActionValue} после ${lastAction}. Пропускаем.`);
+          continue;
+        }
+      }
+
       steps.push({
-        action: result.sign * result.value,
+        action: newActionValue,
         states: [...newStates],
         digits: result.digits
       });
@@ -375,18 +385,19 @@ export class MultiDigitGenerator {
       const isFirstForDigit = (currentState === 0);
       
       let availableActions;
-      
-      // Разные правила имеют разные сигнатуры getAvailableActions
+
+      // 🔧 ИСПРАВЛЕНО: правильная сигнатура getAvailableActions
+      // UnifiedSimpleRule и BrothersRule: (currentState, isFirstAction, position, fullState, previousSteps)
       try {
-        if (this.isBrothersRule) {
-          // BrothersRule: (currentState, isFirst, previousSteps)
-          availableActions = this.baseRule.getAvailableActions(currentState, isFirstForDigit, previousSteps);
-        } else {
-          // UnifiedSimpleRule: (currentState, isFirst) или (currentState, isFirst, previousSteps)
-          availableActions = this.baseRule.getAvailableActions(currentState, isFirstForDigit, previousSteps);
-        }
+        availableActions = this.baseRule.getAvailableActions(
+          currentState,      // текущее состояние разряда
+          isFirstForDigit,   // первое ли действие
+          pos,               // позиция разряда
+          states,            // полное состояние всех разрядов
+          previousSteps      // предыдущие шаги для фильтрации повторов
+        );
       } catch (e) {
-        // Fallback на простой вызов
+        // Fallback на простой вызов (для совместимости)
         availableActions = this.baseRule.getAvailableActions(currentState, isFirstForDigit);
       }
       
