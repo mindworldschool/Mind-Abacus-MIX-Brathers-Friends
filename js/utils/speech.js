@@ -5,7 +5,7 @@
  * import { speakNumber, initSpeech, isSpeechSupported } from './utils/speech.js';
  *
  * if (isSpeechSupported()) {
- *   initSpeech(); // вызвать один раз при загрузке
+ *   initSpeech('ru'); // вызвать один раз при загрузке с кодом языка
  *   speakNumber('+25'); // озвучить число
  * }
  */
@@ -15,9 +15,26 @@ export function isSpeechSupported() {
   return 'speechSynthesis' in window;
 }
 
+// Маппинг кодов языков приложения на коды Speech API
+const LANG_MAP = {
+  'ua': 'uk-UA',  // Украинский
+  'ru': 'ru-RU',  // Русский
+  'en': 'en-US',  // Английский
+  'es': 'es-ES'   // Испанский
+};
+
+// Локализация слов "плюс" и "минус"
+const SPEECH_WORDS = {
+  'ua': { plus: 'плюс', minus: 'мінус' },
+  'ru': { plus: 'плюс', minus: 'минус' },
+  'en': { plus: 'plus', minus: 'minus' },
+  'es': { plus: 'más', minus: 'menos' }
+};
+
 // Хранилище настроек
 let speechSettings = {
   lang: 'ru-RU',
+  appLang: 'ru',
   rate: 1.0,
   pitch: 1.0,
   volume: 1.0,
@@ -29,45 +46,72 @@ let initialized = false;
 
 /**
  * Инициализация модуля речи
- * Вызывать один раз при загрузке приложения
+ * @param {string} [appLanguage='ru'] - Код языка приложения (ua, ru, en, es)
+ * @returns {boolean} Успех инициализации
  */
-export function initSpeech() {
+export function initSpeech(appLanguage = 'ru') {
   if (!isSpeechSupported()) {
     console.warn('⚠️ Web Speech API не поддерживается в этом браузере');
     return false;
   }
 
+  // Сохраняем язык приложения
+  speechSettings.appLang = appLanguage;
+  speechSettings.lang = LANG_MAP[appLanguage] || 'ru-RU';
+
   // Ждем загрузки голосов
   if (speechSynthesis.getVoices().length === 0) {
-    speechSynthesis.addEventListener('voiceschanged', selectVoice);
+    speechSynthesis.addEventListener('voiceschanged', () => selectVoice(appLanguage));
   } else {
-    selectVoice();
+    selectVoice(appLanguage);
   }
 
   initialized = true;
-  console.log('✅ Модуль речи инициализирован');
+  console.log(`✅ Модуль речи инициализирован для языка: ${appLanguage} (${speechSettings.lang})`);
   return true;
 }
 
 /**
- * Выбор подходящего голоса (предпочтительно русский)
+ * Смена языка озвучки
+ * @param {string} appLanguage - Код языка приложения (ua, ru, en, es)
  */
-function selectVoice() {
+export function setSpeechLanguage(appLanguage) {
+  if (!isSpeechSupported()) return;
+
+  speechSettings.appLang = appLanguage;
+  speechSettings.lang = LANG_MAP[appLanguage] || 'ru-RU';
+  selectVoice(appLanguage);
+
+  console.log(`🗣️ Язык озвучки изменён на: ${appLanguage} (${speechSettings.lang})`);
+}
+
+/**
+ * Выбор подходящего голоса для указанного языка
+ * @param {string} appLanguage - Код языка приложения
+ */
+function selectVoice(appLanguage) {
   const voices = speechSynthesis.getVoices();
+  const targetLang = LANG_MAP[appLanguage] || 'ru-RU';
+  const langPrefix = targetLang.split('-')[0]; // 'uk', 'ru', 'en', 'es'
 
-  // Ищем русский голос
-  let russianVoice = voices.find(v => v.lang.startsWith('ru'));
+  // Ищем голос для нужного языка
+  let selectedVoice = voices.find(v => v.lang === targetLang);
 
-  // Если нет русского, берем первый доступный
-  if (!russianVoice && voices.length > 0) {
-    russianVoice = voices[0];
-    console.log('⚠️ Русский голос не найден, используется:', russianVoice.name);
+  // Если точного совпадения нет, ищем по префиксу
+  if (!selectedVoice) {
+    selectedVoice = voices.find(v => v.lang.startsWith(langPrefix));
   }
 
-  if (russianVoice) {
-    speechSettings.voice = russianVoice;
-    speechSettings.lang = russianVoice.lang;
-    console.log('🗣️ Выбран голос:', russianVoice.name, russianVoice.lang);
+  // Если всё ещё нет, берем первый доступный
+  if (!selectedVoice && voices.length > 0) {
+    selectedVoice = voices[0];
+    console.log(`⚠️ Голос для ${appLanguage} не найден, используется: ${selectedVoice.name}`);
+  }
+
+  if (selectedVoice) {
+    speechSettings.voice = selectedVoice;
+    speechSettings.lang = selectedVoice.lang;
+    console.log(`🗣️ Выбран голос: ${selectedVoice.name} (${selectedVoice.lang})`);
   }
 }
 
@@ -78,16 +122,17 @@ function selectVoice() {
  */
 function numberToSpeechText(step) {
   const str = String(step).trim();
+  const words = SPEECH_WORDS[speechSettings.appLang] || SPEECH_WORDS['ru'];
 
   // Извлекаем знак и число
   let sign = '';
   let numStr = str;
 
   if (str.startsWith('+')) {
-    sign = 'плюс ';
+    sign = words.plus + ' ';
     numStr = str.slice(1);
   } else if (str.startsWith('-')) {
-    sign = 'минус ';
+    sign = words.minus + ' ';
     numStr = str.slice(1);
   }
 
@@ -180,4 +225,11 @@ export function setSpeechVolume(volume) {
  */
 export function isSpeechInitialized() {
   return initialized && isSpeechSupported();
+}
+
+/**
+ * Получение текущего языка озвучки
+ */
+export function getCurrentSpeechLanguage() {
+  return speechSettings.appLang;
 }
