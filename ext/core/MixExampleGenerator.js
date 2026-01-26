@@ -767,6 +767,18 @@ export class MixExampleGenerator {
         continue;
       }
 
+      // 🔴 КРИТИЧНО: Проверка на повторы подряд (+N, -N)
+      let hasRepeats = false;
+      for (let i = 0; i < example.steps.length - 1; i++) {
+        if (Math.abs(example.steps[i].action) === Math.abs(example.steps[i + 1].action)) {
+          hasRepeats = true;
+          break;
+        }
+      }
+      if (hasRepeats) {
+        continue; // Отклоняем примеры с повторами
+      }
+
       this._log(`✅ Пример сгенерирован за ${attempt} попыток`);
       return example;
     }
@@ -851,6 +863,11 @@ export class MixExampleGenerator {
       const newValue = this._stateToNumber(newStates);
       if (newValue < 0 || newValue > this.maxValue) {
         continue; // выход за диапазон
+      }
+
+      // 🔴 Проверка на повтор - нельзя +N и сразу -N
+      if (this._isRepeatAction(steps, action)) {
+        continue;
       }
 
       steps.push({
@@ -1324,5 +1341,14 @@ export class MixExampleGenerator {
       steps: formattedSteps,
       answer: example.finalValue
     };
+  }
+
+  /**
+   * 🔴 Проверка на повтор - нельзя +N и сразу -N (или наоборот)
+   */
+  _isRepeatAction(steps, newAction) {
+    if (steps.length === 0) return false;
+    const lastAction = steps[steps.length - 1].action;
+    return Math.abs(newAction) === Math.abs(lastAction);
   }
 }

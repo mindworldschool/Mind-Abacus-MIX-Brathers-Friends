@@ -598,6 +598,16 @@ export class FriendsExampleGenerator {
       const example = this._fallbackExample();
       if (!example || !example.steps) continue;
 
+      // 🔴 КРИТИЧНО: Проверка на повторы подряд (+N, -N)
+      let hasRepeats = false;
+      for (let i = 0; i < example.steps.length - 1; i++) {
+        if (Math.abs(example.steps[i].action) === Math.abs(example.steps[i + 1].action)) {
+          hasRepeats = true;
+          break;
+        }
+      }
+      if (hasRepeats) continue; // Отклоняем примеры с повторами
+
       // Подсчет круглых чисел (оканчивающихся на 0)
       const roundCount = example.steps.filter(s => Math.abs(s.action) % 10 === 0).length;
 
@@ -687,7 +697,8 @@ export class FriendsExampleGenerator {
           // Применяем Friends действие
           const newStates = this._applyAction(states, friendAction);
 
-          if (newStates && this._isValidState(newStates) && !this._checkOverflow(newStates)) {
+          // 🔴 Добавлена проверка на повтор
+          if (newStates && this._isValidState(newStates) && !this._checkOverflow(newStates) && !this._isRepeatAction(steps, friendAction.value)) {
             const signStr = friendAction.value >= 0 ? '+' : '';
             steps.push({
               action: friendAction.value,
@@ -728,7 +739,8 @@ export class FriendsExampleGenerator {
       // Применяем действие
       const newStates = this._applyAction(states, simpleAction);
 
-      if (!newStates || !this._isValidState(newStates) || this._checkOverflow(newStates)) {
+      // 🔴 Добавлена проверка на повтор
+      if (!newStates || !this._isValidState(newStates) || this._checkOverflow(newStates) || this._isRepeatAction(steps, simpleAction.value)) {
         continue;
       }
 
@@ -1878,5 +1890,14 @@ export class FriendsExampleGenerator {
   _arraysEqual(a, b) {
     if (a.length !== b.length) return false;
     return a.every((val, idx) => val === b[idx]);
+  }
+
+  /**
+   * 🔴 Проверка на повтор - нельзя +N и сразу -N (или наоборот)
+   */
+  _isRepeatAction(steps, newAction) {
+    if (steps.length === 0) return false;
+    const lastAction = steps[steps.length - 1].action;
+    return Math.abs(newAction) === Math.abs(lastAction);
   }
 }
