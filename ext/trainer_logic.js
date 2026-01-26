@@ -548,16 +548,31 @@ export function mountTrainerUI(container, {
       const input = document.getElementById("answer-input");
       if (input) input.value = "";
 
-      // Режим пошагового показа: если много действий ИЛИ включён диктант
-      const shouldUseStepByStep = actionsLen > 12 || dictationEnabled;
+      // ====== ЛОГИКА ПОШАГОВОГО ПОКАЗА ======
+      // 1. Скорость показа активна → показ по одному БЕЗ озвучки (с выбранной скоростью)
+      // 2. Диктант активен → показ по одному С озвучкой (скорость из настроек или 1500мс)
+      // 3. Много действий (>12) → показ по одному (2000мс)
 
-      // Скорость показа: для диктанта используем 1500мс по умолчанию
-      const effectiveShowSpeed = dictationEnabled
-        ? (st.showSpeedMs || 1500)
-        : (actionsLen > 12 ? 2000 : (st.showSpeedMs || 0));
+      const showSpeedActive = st.showSpeedEnabled && st.showSpeedMs > 0;
+      const manyActions = actionsLen > 12;
 
-      const showSpeedActive =
-        st.showSpeedEnabled && effectiveShowSpeed > 0;
+      // Определяем нужен ли пошаговый показ
+      const needStepByStep = showSpeedActive || dictationEnabled || manyActions;
+
+      // Определяем скорость показа
+      let effectiveShowSpeed = 0;
+      if (showSpeedActive) {
+        // Приоритет: настройка скорости показа
+        effectiveShowSpeed = st.showSpeedMs;
+      } else if (dictationEnabled) {
+        // Диктант: используем настройку скорости или 1500мс по умолчанию
+        effectiveShowSpeed = st.showSpeedMs || 1500;
+      } else if (manyActions) {
+        // Много действий: 2000мс
+        effectiveShowSpeed = 2000;
+      }
+
+      logger.info(CONTEXT, `Step-by-step: ${needStepByStep}, speed: ${effectiveShowSpeed}ms, dictation: ${dictationEnabled}, showSpeed: ${showSpeedActive}`);
 
       const displaySteps = ex.steps.map(step => {
         if (typeof step === "string") return step;
@@ -565,8 +580,8 @@ export function mountTrainerUI(container, {
         return String(step);
       });
 
-      // Пошаговый показ если: скорость включена ИЛИ много действий ИЛИ диктант
-      if (showSpeedActive || shouldUseStepByStep) {
+      // Пошаговый показ если нужен
+      if (needStepByStep) {
         const area = document.getElementById("area-example");
         if (area) area.innerHTML = "";
       } else {
@@ -579,7 +594,7 @@ export function mountTrainerUI(container, {
       const lockDuringShow = st.lockInputDuringShow !== false;
       if (input) input.disabled = lockDuringShow;
 
-      if (showSpeedActive || shouldUseStepByStep) {
+      if (needStepByStep) {
         isShowing = true;
         showAbort = false;
         await playSequential(
