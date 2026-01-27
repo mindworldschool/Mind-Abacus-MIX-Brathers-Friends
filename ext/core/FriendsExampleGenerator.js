@@ -1318,33 +1318,101 @@ export class FriendsExampleGenerator {
 
     // ШАГ 2: ЦИКЛ генерации Friends действий
     // Пытаемся добавить несколько Friends с простыми шагами между ними
+    // 🔥 УЧИТЫВАЕМ onlyAddition/onlySubtraction!
+    const { onlyAddition, onlySubtraction } = this.config;
+
     while (friendsAdded < maxFriends && steps.length < targetSteps - 2) {
       this._log(`\n🔄 Попытка ${friendsAdded + 1} Friends...`);
 
       // Выбираем СЛУЧАЙНУЮ цифру Friends для РАЗНООБРАЗИЯ
       const friendDigit = this.config.selectedDigits[Math.floor(Math.random() * this.config.selectedDigits.length)] || 1;
-      const requiredTargetVal = 10 - friendDigit; // Для digit=1 нужно 9, для digit=9 нужно 1
-      this._log(`  Выбрана Friends цифра: ${friendDigit} (нужно состояние ЦЕЛЕВОГО разряда [${this._getPositionName(this.targetPosition)}] >= ${requiredTargetVal})`);
+
+      // 🔥 ВАЖНО: Определяем направление Friends действия
+      // Для СЛОЖЕНИЯ (+Friends): нужно состояние >= (10 - friendDigit)
+      // Для ВЫЧИТАНИЯ (-Friends): нужно состояние в диапазоне вычитания
+      const isSubtractionFriend = onlySubtraction || (!onlyAddition && Math.random() < 0.5 && steps.length > 0);
+
+      let requiredTargetVal;
+      if (isSubtractionFriend) {
+        // Для вычитания: используем требования из _getSubtractionRequirements
+        const subRequirements = this._getSubtractionRequirements(friendDigit);
+        // Выбираем случайное целевое состояние из допустимых
+        requiredTargetVal = subRequirements.states[Math.floor(Math.random() * subRequirements.states.length)] || 0;
+        this._log(`  Выбрана Friends цифра: -${friendDigit} (ВЫЧИТАНИЕ, нужно состояние ЦЕЛЕВОГО разряда [${this._getPositionName(this.targetPosition)}] = ${requiredTargetVal})`);
+      } else {
+        requiredTargetVal = 10 - friendDigit; // Для digit=1 нужно 9, для digit=9 нужно 1
+        this._log(`  Выбрана Friends цифра: +${friendDigit} (СЛОЖЕНИЕ, нужно состояние ЦЕЛЕВОГО разряда [${this._getPositionName(this.targetPosition)}] >= ${requiredTargetVal})`);
+      }
 
       // ШАГ 2.1: Выбираем СЛУЧАЙНОЕ целевое значение ЦЕЛЕВОГО РАЗРЯДА из диапазона
-      // НО ВАЖНО: вычитание friend должно быть возможно по правилу Просто!
-      // Ищем валидные состояния в диапазоне [requiredTargetVal, 9]
+      // НО ВАЖНО: формула должна быть возможна по правилу Просто!
       const friend = 10 - friendDigit;
       const validTargets = [];
-      for (let v = requiredTargetVal; v <= 9; v++) {
-        if (this._canMinusDirect(v, friend)) {
-          validTargets.push(v);
+
+      if (isSubtractionFriend) {
+        // 🔥 Для ВЫЧИТАНИЯ: ищем состояния где +friend возможен по Просто
+        const subRequirements = this._getSubtractionRequirements(friendDigit);
+        for (const v of subRequirements.states) {
+          if (this._canPlusDirect(v, friend)) {
+            validTargets.push(v);
+          }
+        }
+      } else {
+        // Для СЛОЖЕНИЯ: ищем состояния где -friend возможен по Просто
+        for (let v = requiredTargetVal; v <= 9; v++) {
+          if (this._canMinusDirect(v, friend)) {
+            validTargets.push(v);
+          }
         }
       }
 
       if (validTargets.length === 0) {
-        this._warn(`❌ Нет валидных целевых состояний для friend=${friend} в диапазоне [${requiredTargetVal}, 9]!`);
+        this._warn(`❌ Нет валидных целевых состояний для friend=${friend}!`);
         break;
       }
 
       const targetTargetVal = validTargets[Math.floor(Math.random() * validTargets.length)];
       this._log(`🎲 Целевое состояние ${this._getPositionName(this.targetPosition)}: ${targetTargetVal} (валидные: [${validTargets.join(', ')}])`);
-      this._log(`   После Friends останется: ${targetTargetVal - friend} бусин`);
+      if (isSubtractionFriend) {
+        this._log(`   После Friends останется: ${targetTargetVal + friend} бусин (формула: -10 +${friend})`);
+      } else {
+        this._log(`   После Friends останется: ${targetTargetVal - friend} бусин (формула: +10 -${friend})`);
+      }
+
+      // 🔥 ШАГ 2.1.5: Для ВЫЧИТАНИЯ Friends нужен заём из следующего разряда
+      // Убеждаемся что states[targetPosition + 1] >= 1
+      if (isSubtractionFriend) {
+        const nextPos = this.targetPosition + 1;
+        const nextVal = states[nextPos] || 0;
+
+        if (nextVal === 0) {
+          // Нужно добавить в следующий разряд - делаем +10 действие
+          this._log(`  🔧 Подготовка заёма: следующий разряд [${this._getPositionName(nextPos)}] = 0, добавляем`);
+
+          // Множитель для следующего разряда
+          const nextMultiplier = Math.pow(10, nextPos);
+
+          // Ищем подходящую цифру для добавления
+          for (const tryDigit of simpleDigitsDesc) {
+            if (this._canPlusDirect(0, tryDigit) && steps.length < targetSteps - 2) {
+              const baseAction = tryDigit * nextMultiplier;
+              const fullAction = this._addRandomDigitsToAction(baseAction, states, false);
+              const newStates = this._applyAction(states, { value: fullAction, isFriend: false });
+
+              if (newStates && this._isValidState(newStates) && !this._checkOverflow(newStates)) {
+                steps.push({
+                  action: fullAction,
+                  isFriend: false,
+                  states: [...newStates]
+                });
+                states = newStates;
+                this._log(`    ➕ Добавлено: +${fullAction}, состояние: [${newStates.join(', ')}]`);
+                break;
+              }
+            }
+          }
+        }
+      }
 
       // ШАГ 2.2: ПОДГОТАВЛИВАЕМ ЦЕЛЕВОЙ РАЗРЯД к целевому состоянию
       // Для многозначных используем УПРОЩЕННУЮ стратегию:
@@ -1572,11 +1640,19 @@ export class FriendsExampleGenerator {
 
       // КРИТИЧЕСКАЯ ПРОВЕРКА:
       // 1. Достигли ли целевого состояния (targetTargetVal)?
-      // 2. Можно ли вычесть friend по правилу Просто?
-      // Например, из 6 (U=1,L=1) вычесть -2 НЕЛЬЗЯ по Просто (это МИКС!)
-      if (currentTarget === targetTargetVal && this._canMinusDirect(currentTarget, friend) && steps.length < targetSteps) {
+      // 2. Можно ли выполнить формулу по правилу Просто?
+      //    - Для СЛОЖЕНИЯ: можно ли вычесть friend?
+      //    - Для ВЫЧИТАНИЯ: можно ли добавить friend?
+      const canApplyFormula = isSubtractionFriend
+        ? this._canPlusDirect(currentTarget, friend)  // Для -n = -10 + friend
+        : this._canMinusDirect(currentTarget, friend); // Для +n = +10 - friend
+
+      if (currentTarget === targetTargetVal && canApplyFormula && steps.length < targetSteps) {
         // Применяем Friends через _applyAction - он правильно обработает целевой разряд
-        const baseFriendAction = friendDigit * multiplier; // Базовое Friends действие для целевого разряда
+        // 🔥 ВАЖНО: Для вычитания делаем отрицательное действие!
+        const baseFriendAction = isSubtractionFriend
+          ? -friendDigit * multiplier  // ОТРИЦАТЕЛЬНОЕ для вычитания
+          : friendDigit * multiplier;  // Положительное для сложения
         const fullFriendAction = this._addRandomDigitsToAction(baseFriendAction, states, true); // Добавляем цифры для остальных разрядов
         const newStates = this._applyAction(states, { value: fullFriendAction, isFriend: true });
 
@@ -1592,7 +1668,7 @@ export class FriendsExampleGenerator {
           });
           states = newStates;
           friendsAdded++;
-          this._log(`✅ Friends #${friendsAdded} добавлен: +${fullFriendAction} (база: ${baseFriendAction}, с дополнительными разрядами), состояние: [${newStates.join(', ')}]`);
+          this._log(`✅ Friends #${friendsAdded} добавлен: ${signStr}${fullFriendAction} (база: ${baseFriendAction}, ${isSubtractionFriend ? 'ВЫЧИТАНИЕ' : 'СЛОЖЕНИЕ'}), состояние: [${newStates.join(', ')}]`);
 
           // ШАГ 2.3: Добавляем 1-2 простых шага после Friends для разнообразия
           const simpleStepsAfter = friendsAdded < maxFriends ? (Math.floor(Math.random() * 2) + 1) : 0; // 1-2 шага, или 0 если это последний Friends
@@ -1638,11 +1714,12 @@ export class FriendsExampleGenerator {
         // Проверяем причину отказа
         if (currentTarget !== targetTargetVal) {
           this._warn(`⚠️ Не удалось достичь целевого состояния! Текущее=${currentTarget}, целевое=${targetTargetVal}`);
-        } else if (currentTarget < requiredTargetVal) {
-          this._warn(`⚠️ Недостаточно бусин! Текущее=${currentTarget}, требуется минимум ${requiredTargetVal}`);
-        } else if (!this._canMinusDirect(currentTarget, friend)) {
-          this._warn(`⚠️ Невозможно вычесть friend=${friend} из ${currentTarget} по правилу Просто (будет МИКС)!`);
-          this._warn(`   Для friend=${friend} валидные состояния: те, где вычитание -${friend} однонаправленное`);
+        } else if (!canApplyFormula) {
+          if (isSubtractionFriend) {
+            this._warn(`⚠️ Невозможно добавить friend=${friend} к ${currentTarget} по правилу Просто (нужно для -${friendDigit})!`);
+          } else {
+            this._warn(`⚠️ Невозможно вычесть friend=${friend} из ${currentTarget} по правилу Просто (нужно для +${friendDigit})!`);
+          }
         }
         break; // Прерываем цикл Friends, если не можем подготовить
       }
