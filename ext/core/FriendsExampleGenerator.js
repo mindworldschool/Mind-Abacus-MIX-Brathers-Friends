@@ -1328,9 +1328,9 @@ export class FriendsExampleGenerator {
       const friendDigit = this.config.selectedDigits[Math.floor(Math.random() * this.config.selectedDigits.length)] || 1;
 
       // 🔥 ВАЖНО: Определяем направление Friends действия
-      // Для СЛОЖЕНИЯ (+Friends): нужно состояние >= (10 - friendDigit)
-      // Для ВЫЧИТАНИЯ (-Friends): нужно состояние в диапазоне вычитания
-      const isSubtractionFriend = onlySubtraction || (!onlyAddition && Math.random() < 0.5 && steps.length > 0);
+      // Вычитание используем ТОЛЬКО когда явно запрошено (onlySubtraction)
+      // Это сохраняет обратную совместимость с обычной генерацией
+      const isSubtractionFriend = onlySubtraction === true;
 
       let requiredTargetVal;
       if (isSubtractionFriend) {
