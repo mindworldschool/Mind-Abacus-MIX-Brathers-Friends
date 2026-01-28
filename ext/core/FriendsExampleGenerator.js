@@ -80,6 +80,17 @@ export class FriendsExampleGenerator {
       this.config.digitCount = 1;
     }
 
+    // 🔥 ВАЖНО: onlySubtraction для однозначного Friends математически невозможен!
+    // Причина: вычитание Friends (-n = -10 + friend) требует заёма из следующего разряда,
+    // но для digitCount=1 это создаёт двузначные действия (+10, +20, ...) что противоречит однозначному режиму.
+    // Решение: автоматически отключаем onlySubtraction для digitCount=1
+    if (this.config.digitCount === 1 && this.config.onlySubtraction) {
+      if (!this.config.silent) {
+        console.warn("⚠️ FriendsExampleGenerator: onlySubtraction несовместим с однозначным режимом (digitCount=1). Отключаем onlySubtraction.");
+      }
+      this.config.onlySubtraction = false;
+    }
+
     // МИНИМУМ для правила Друзья: 4 шага
     // Причина: нужно минимум 1-2 шага подготовки + 1 Friends + 1 заполнение
     const MIN_STEPS_FOR_FRIENDS = 4;
