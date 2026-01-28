@@ -1393,20 +1393,23 @@ export class FriendsExampleGenerator {
           const nextMultiplier = Math.pow(10, nextPos);
 
           // Ищем подходящую цифру для добавления
+          // ВАЖНО: напрямую меняем состояние, т.к. _applyAction работает только с digitCount разрядов
           for (const tryDigit of simpleDigitsDesc) {
             if (this._canPlusDirect(0, tryDigit) && steps.length < targetSteps - 2) {
-              const baseAction = tryDigit * nextMultiplier;
-              const fullAction = this._addRandomDigitsToAction(baseAction, states, false);
-              const newStates = this._applyAction(states, { value: fullAction, isFriend: false });
+              const action = tryDigit * nextMultiplier;
 
-              if (newStates && this._isValidState(newStates) && !this._checkOverflow(newStates)) {
+              // НАПРЯМУЮ изменяем состояние следующего разряда
+              const newStates = [...states];
+              newStates[nextPos] = tryDigit;
+
+              if (this._isValidState(newStates) && !this._checkOverflow(newStates)) {
                 steps.push({
-                  action: fullAction,
+                  action: action,
                   isFriend: false,
                   states: [...newStates]
                 });
                 states = newStates;
-                this._log(`    ➕ Добавлено: +${fullAction}, состояние: [${newStates.join(', ')}]`);
+                this._log(`    ➕ Добавлено: +${action}, состояние: [${newStates.join(', ')}]`);
                 break;
               }
             }
