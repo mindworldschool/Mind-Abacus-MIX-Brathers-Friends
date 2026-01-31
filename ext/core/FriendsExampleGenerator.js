@@ -670,6 +670,28 @@ export class FriendsExampleGenerator {
   _generateAttempt() {
     // Инициализация состояния (с дополнительным разрядом для переноса)
     let states = Array(this.stateDigitCount).fill(0);
+
+    // 🔥 ДЛЯ РЕЖИМА "ТОЛЬКО ВЫЧИТАНИЕ": начинаем с БОЛЬШОГО числа
+    if (this.config.onlySubtraction === true) {
+      // Расчет начального числа на основе количества действий
+      // Формула: примерно (количество_действий × 6-8) + запас
+      const avgActionSize = 6 + Math.floor(Math.random() * 3); // 6-8
+      const baseValue = this.config.stepsCount * avgActionSize;
+      const reserve = 10 + Math.floor(Math.random() * 15); // 10-24
+      let startNumber = Math.min(baseValue + reserve, 99); // Не больше 99
+
+      // Минимальное начальное число - не меньше 50 для безопасности
+      startNumber = Math.max(startNumber, 50);
+
+      // Конвертируем число в состояние разрядов
+      const startDigits = this._numberToDigits(startNumber, this.stateDigitCount);
+      for (let i = 0; i < startDigits.length && i < states.length; i++) {
+        states[i] = startDigits[i];
+      }
+
+      this._log(`🎯 Режим "только вычитание": начальное число ${startNumber}, состояние: [${states.join(', ')}]`);
+    }
+
     const steps = [];
     const targetSteps = this.config.stepsCount; // ТОЧНОЕ количество
 
@@ -1311,27 +1333,47 @@ export class FriendsExampleGenerator {
     const multiplier = Math.pow(10, this.targetPosition);
     this._log(`🔢 Множитель для действий: ${multiplier} (digitCount=${this.config.digitCount}, targetPosition=${this.targetPosition})`);
 
-    // ШАГ 1: Умное начало - СЛУЧАЙНОЕ маленькое действие из simpleDigits
-    // Многошаговая подготовка сама доведет до нужного состояния
-    if (steps.length < targetSteps - 1) {
-      // Выбираем случайное действие из simpleDigits (небольшое, чтобы не переполнить)
-      const availableSmallDigits = this.config.simpleDigits.filter(d => d <= 4);
-      const smartStartDigit = availableSmallDigits.length > 0
-        ? availableSmallDigits[Math.floor(Math.random() * availableSmallDigits.length)]
-        : this.config.simpleDigits[Math.floor(Math.random() * this.config.simpleDigits.length)];
+    // ШАГ 1: Начальное состояние
+    // 🔥 ДЛЯ РЕЖИМА "ТОЛЬКО ВЫЧИТАНИЕ": начинаем с БОЛЬШОГО числа
+    if (this.config.onlySubtraction === true) {
+      // Расчет начального числа на основе количества действий
+      const avgActionSize = 6 + Math.floor(Math.random() * 3); // 6-8
+      const baseValue = targetSteps * avgActionSize;
+      const reserve = 10 + Math.floor(Math.random() * 15); // 10-24
+      let startNumber = Math.min(baseValue + reserve, 99); // Не больше 99
 
-      if (smartStartDigit > 0) {
-        const baseAction = smartStartDigit * multiplier; // Базовое действие для целевого разряда
-        const fullAction = this._addRandomDigitsToAction(baseAction, states, false); // Добавляем цифры для остальных разрядов
-        const newStates = this._applyAction(states, { value: fullAction, isFriend: false });
-        if (newStates && this._isValidState(newStates)) {
-          steps.push({
-            action: fullAction,
-            isFriend: false,
-            states: [...newStates]
-          });
-          states = newStates;
-          this._log(`🎯 Случайное начало: +${fullAction} (база: ${baseAction}, с дополнительными разрядами), состояние: [${newStates.join(', ')}]`);
+      // Минимальное начальное число - не меньше 50
+      startNumber = Math.max(startNumber, 50);
+
+      // Конвертируем число в состояние разрядов
+      const startDigits = this._numberToDigits(startNumber, this.stateDigitCount);
+      for (let i = 0; i < startDigits.length && i < states.length; i++) {
+        states[i] = startDigits[i];
+      }
+
+      this._log(`🎯 Fallback режим "только вычитание": начальное число ${startNumber}, состояние: [${states.join(', ')}]`);
+    } else {
+      // ДЛЯ ДРУГИХ РЕЖИМОВ: Умное начало - СЛУЧАЙНОЕ маленькое действие из simpleDigits
+      if (steps.length < targetSteps - 1) {
+        // Выбираем случайное действие из simpleDigits (небольшое, чтобы не переполнить)
+        const availableSmallDigits = this.config.simpleDigits.filter(d => d <= 4);
+        const smartStartDigit = availableSmallDigits.length > 0
+          ? availableSmallDigits[Math.floor(Math.random() * availableSmallDigits.length)]
+          : this.config.simpleDigits[Math.floor(Math.random() * this.config.simpleDigits.length)];
+
+        if (smartStartDigit > 0) {
+          const baseAction = smartStartDigit * multiplier; // Базовое действие для целевого разряда
+          const fullAction = this._addRandomDigitsToAction(baseAction, states, false); // Добавляем цифры для остальных разрядов
+          const newStates = this._applyAction(states, { value: fullAction, isFriend: false });
+          if (newStates && this._isValidState(newStates)) {
+            steps.push({
+              action: fullAction,
+              isFriend: false,
+              states: [...newStates]
+            });
+            states = newStates;
+            this._log(`🎯 Случайное начало: +${fullAction} (база: ${baseAction}, с дополнительными разрядами), состояние: [${newStates.join(', ')}]`);
+          }
         }
       }
     }
