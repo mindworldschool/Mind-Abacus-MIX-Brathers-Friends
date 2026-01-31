@@ -841,14 +841,15 @@ export class FriendsExampleGenerator {
     const allCandidates = [];
 
     for (const friendDigit of digitsToTry) {
-      // Пробуем сложение
-      if (!onlySubtraction && (isFirst || true)) {
+      // Пробуем сложение (если не запрещено флагом onlySubtraction)
+      if (!onlySubtraction) {
         const action = this._tryGenerateFriendAddition(friendDigit, states, isFirst, lastActions);
         if (action) allCandidates.push(action);
       }
 
-      // Пробуем вычитание
-      if (!onlyAddition && !isFirst) {
+      // Пробуем вычитание (если не запрещено флагом onlyAddition)
+      // Теперь можно и для isFirst, т.к. для onlySubtraction мы начинаем с большого числа
+      if (!onlyAddition) {
         const action = this._tryGenerateFriendSubtraction(friendDigit, states, lastActions);
         if (action) allCandidates.push(action);
       }
@@ -1077,14 +1078,14 @@ export class FriendsExampleGenerator {
         continue; // Пропускаем с вероятностью 70%
       }
 
-      if (value > 0 && isFirst) {
+      if (value > 0 && isFirst && !this.config.onlySubtraction) {
         if (this._canApplySimpleDirect(states, value)) {
           availableActions.push(value);
         }
       }
 
-      // Вычитание (только если не первое действие)
-      if (!isFirst) {
+      // Вычитание (только если не первое действие ИЛИ режим onlySubtraction)
+      if (!isFirst || this.config.onlySubtraction) {
         // Пробуем вычитание
         const subDigits = [];
         let canSubtract = true;
