@@ -255,22 +255,37 @@ export class FriendsExampleGenerator {
 
   /**
    * Можно ли добавить +10 к целевому разряду (перенос)?
+   * Проверяет, можем ли добавить +1 к СЛЕДУЮЩЕМУ разряду по правилу Просто.
    * @param {number[]} states - состояние всех разрядов
    * @returns {boolean}
    */
   _canAddTenToTarget(states) {
-    const targetVal = states[this.targetPosition] || 0;
-    return targetVal < 9; // Есть свободные бусины
+    const nextPos = this.targetPosition + 1;
+
+    const nextVal = states[nextPos] || 0;
+
+    // Проверка: можем ли добавить +1 к следующему разряду по правилу Просто?
+    // (нельзя в 4 - требует Братья, нельзя в 9 - переполнение)
+    return this._canPlusDirect(nextVal, 1);
   }
 
   /**
    * Можно ли убрать -10 из целевого разряда (заём)?
+   * Проверяет, можем ли вычесть -1 из СЛЕДУЮЩЕГО разряда по правилу Просто.
    * @param {number[]} states - состояние всех разрядов
    * @returns {boolean}
    */
   _canSubtractTenFromTarget(states) {
-    const targetVal = states[this.targetPosition] || 0;
-    return targetVal > 0; // Есть активные бусины
+    const nextPos = this.targetPosition + 1;
+
+    // Проверка: существует ли следующий разряд?
+    if (nextPos >= states.length) return false;
+
+    const nextVal = states[nextPos] || 0;
+
+    // Проверка: можем ли вычесть -1 из следующего разряда по правилу Просто?
+    // (нельзя из 0 - недостаточно, нельзя из 5 - требует Братья)
+    return this._canMinusDirect(nextVal, 1);
   }
 
   // ========== СЕКЦИЯ 2: МНОГОЗНАЧНЫЕ ДЕЙСТВИЯ ==========
@@ -512,13 +527,13 @@ export class FriendsExampleGenerator {
       case 5:
         return { minState: 5, maxState: 9, states: [5, 6, 7, 8, 9] };
       case 6:
-        return { minState: 4, maxState: 9, states: [4, 5, 6, 7, 8, 9] };
+        return { minState: 4, maxState: 9, states: [4, 9] };
       case 7:
-        return { minState: 3, maxState: 9, states: [3, 4, 5, 6, 7, 8, 9] };
+        return { minState: 3, maxState: 9, states: [3, 4, 8, 9] };
       case 8:
-        return { minState: 2, maxState: 9, states: [2, 3, 4, 5, 6, 7, 8, 9] };
+        return { minState: 2, maxState: 9, states: [2, 3, 4, 7, 8, 9] };
       case 9:
-        return { minState: 1, maxState: 9, states: [1, 2, 3, 4, 5, 6, 7, 8, 9] };
+        return { minState: 1, maxState: 9, states: [1, 2, 3, 4, 6, 7, 8, 9] };
       default:
         return { minState: friend, maxState: 9, states: [] };
     }
@@ -545,13 +560,13 @@ export class FriendsExampleGenerator {
       case 5:
         return { minState: 0, maxState: 4, states: [0, 1, 2, 3, 4] };
       case 6:
-        return { minState: 0, maxState: 3, states: [0, 1, 2, 3] };
+        return { minState: 0, maxState: 5, states: [0, 5] };
       case 7:
-        return { minState: 0, maxState: 2, states: [0, 1, 2] };
+        return { minState: 0, maxState: 6, states: [0, 1, 5, 6] };
       case 8:
-        return { minState: 0, maxState: 1, states: [0, 1] };
+        return { minState: 0, maxState: 7, states: [0, 1, 2, 5, 6, 7] };
       case 9:
-        return { minState: 0, maxState: 0, states: [0] };
+        return { minState: 0, maxState: 8, states: [0, 1, 2, 3, 5, 6, 7, 8] };
       default:
         return { minState: 0, maxState: maxAllowed, states: [] };
     }
@@ -852,6 +867,11 @@ export class FriendsExampleGenerator {
     const friend = 10 - friendDigit;
     if (!this._canMinusDirect(targetVal, friend)) {
       return null; // Не можем вычесть friend
+    }
+
+    // Проверка: можем ли сделать перенос +10 (добавить +1 к следующему разряду по Просто)?
+    if (!this._canAddTenToTarget(states)) {
+      return null; // Не можем сделать перенос (в 4 - требует Братья, в 9 - переполнение)
     }
 
     // Генерируем многозначное действие
@@ -1328,9 +1348,16 @@ export class FriendsExampleGenerator {
       const friendDigit = this.config.selectedDigits[Math.floor(Math.random() * this.config.selectedDigits.length)] || 1;
 
       // 🔥 ВАЖНО: Определяем направление Friends действия
-      // Вычитание используем ТОЛЬКО когда явно запрошено (onlySubtraction)
-      // Это сохраняет обратную совместимость с обычной генерацией
-      const isSubtractionFriend = onlySubtraction === true;
+      // Учитываем оба флага: onlySubtraction и onlyAddition
+      let isSubtractionFriend;
+      if (onlySubtraction === true) {
+        isSubtractionFriend = true; // Только вычитание для Friends
+      } else if (onlyAddition === true) {
+        isSubtractionFriend = false; // Только сложение для Friends
+      } else {
+        // Смешанный режим: можно и то, и другое (по умолчанию сложение для совместимости)
+        isSubtractionFriend = false;
+      }
 
       let requiredTargetVal;
       if (isSubtractionFriend) {
