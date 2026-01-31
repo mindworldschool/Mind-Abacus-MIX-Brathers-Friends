@@ -671,27 +671,6 @@ export class FriendsExampleGenerator {
     // Инициализация состояния (с дополнительным разрядом для переноса)
     let states = Array(this.stateDigitCount).fill(0);
 
-    // 🔥 ДЛЯ РЕЖИМА "ТОЛЬКО ВЫЧИТАНИЕ": начинаем с БОЛЬШОГО числа
-    if (this.config.onlySubtraction === true) {
-      // Расчет начального числа на основе количества действий
-      // Формула: примерно (количество_действий × 6-8) + запас
-      const avgActionSize = 6 + Math.floor(Math.random() * 3); // 6-8
-      const baseValue = this.config.stepsCount * avgActionSize;
-      const reserve = 10 + Math.floor(Math.random() * 15); // 10-24
-      let startNumber = Math.min(baseValue + reserve, 99); // Не больше 99
-
-      // Минимальное начальное число - не меньше 50 для безопасности
-      startNumber = Math.max(startNumber, 50);
-
-      // Конвертируем число в состояние разрядов
-      const startDigits = this._numberToDigits(startNumber, this.stateDigitCount);
-      for (let i = 0; i < startDigits.length && i < states.length; i++) {
-        states[i] = startDigits[i];
-      }
-
-      this._log(`🎯 Режим "только вычитание": начальное число ${startNumber}, состояние: [${states.join(', ')}]`);
-    }
-
     const steps = [];
     const targetSteps = this.config.stepsCount; // ТОЧНОЕ количество
 
@@ -1051,6 +1030,37 @@ export class FriendsExampleGenerator {
   _generateSimpleAction(states, isFirst, lastDigit = null, lastActions = []) {
     const availableActions = [];
 
+    // 🔥 СПЕЦИАЛЬНАЯ ЛОГИКА: Для onlySubtraction первое действие - БОЛЬШОЕ ПОЛОЖИТЕЛЬНОЕ
+    if (isFirst && this.config.onlySubtraction === true) {
+      // Расчет большого начального действия на основе количества действий
+      // Формула: примерно (количество_действий × 6-8) + запас
+      const avgActionSize = 6 + Math.floor(Math.random() * 3); // 6-8
+      const baseValue = this.config.stepsCount * avgActionSize;
+      const reserve = 10 + Math.floor(Math.random() * 15); // 10-24
+      let bigNumber = Math.min(baseValue + reserve, 99); // Не больше 99
+
+      // Минимальное число - не меньше 50
+      bigNumber = Math.max(bigNumber, 50);
+
+      this._log(`🎯 Первое действие для onlySubtraction: +${bigNumber} (вспомогательное, многозначное)`);
+
+      // Проверяем что можем применить это действие
+      const bigDigits = this._numberToDigits(bigNumber, this.stateDigitCount);
+      let canApply = true;
+      for (let pos = 0; pos < bigDigits.length && pos < states.length; pos++) {
+        const currentVal = states[pos] || 0;
+        const digit = bigDigits[pos] || 0;
+        if (currentVal + digit > 9 || !this._canPlusDirect(currentVal, digit)) {
+          canApply = false;
+          break;
+        }
+      }
+
+      if (canApply) {
+        return { value: bigNumber, isFriend: false };
+      }
+    }
+
     // Генерируем многозначные простые действия
     const maxActionValue = Math.pow(10, this.config.digitCount) - 1;
 
@@ -1084,14 +1094,17 @@ export class FriendsExampleGenerator {
         continue; // Пропускаем с вероятностью 70%
       }
 
-      if (value > 0 && isFirst && !this.config.onlySubtraction) {
+      // Положительные Simple действия (для разнообразия, всегда разрешены)
+      // Кроме случая isFirst + onlySubtraction (уже обработано выше - возврат большого +88)
+      if (value > 0 && !(isFirst && this.config.onlySubtraction)) {
         if (this._canApplySimpleDirect(states, value)) {
           availableActions.push(value);
         }
       }
 
-      // Вычитание (только если не первое действие ИЛИ режим onlySubtraction)
-      if (!isFirst || this.config.onlySubtraction) {
+      // Вычитание Simple (только для не-первого действия)
+      // Для isFirst + onlySubtraction уже возвращено большое действие выше
+      if (!isFirst) {
         // Пробуем вычитание
         const subDigits = [];
         let canSubtract = true;
@@ -1342,47 +1355,49 @@ export class FriendsExampleGenerator {
     const multiplier = Math.pow(10, this.targetPosition);
     this._log(`🔢 Множитель для действий: ${multiplier} (digitCount=${this.config.digitCount}, targetPosition=${this.targetPosition})`);
 
-    // ШАГ 1: Начальное состояние
-    // 🔥 ДЛЯ РЕЖИМА "ТОЛЬКО ВЫЧИТАНИЕ": начинаем с БОЛЬШОГО числа
-    if (this.config.onlySubtraction === true) {
-      // Расчет начального числа на основе количества действий
+    // ШАГ 1: Первое действие
+    // 🔥 ДЛЯ РЕЖИМА "ТОЛЬКО ВЫЧИТАНИЕ": первое действие - БОЛЬШОЕ ПОЛОЖИТЕЛЬНОЕ
+    if (this.config.onlySubtraction === true && steps.length < targetSteps) {
+      // Расчет большого начального действия на основе количества действий
       const avgActionSize = 6 + Math.floor(Math.random() * 3); // 6-8
       const baseValue = targetSteps * avgActionSize;
       const reserve = 10 + Math.floor(Math.random() * 15); // 10-24
-      let startNumber = Math.min(baseValue + reserve, 99); // Не больше 99
+      let bigNumber = Math.min(baseValue + reserve, 99); // Не больше 99
 
-      // Минимальное начальное число - не меньше 50
-      startNumber = Math.max(startNumber, 50);
+      // Минимальное число - не меньше 50
+      bigNumber = Math.max(bigNumber, 50);
 
-      // Конвертируем число в состояние разрядов
-      const startDigits = this._numberToDigits(startNumber, this.stateDigitCount);
-      for (let i = 0; i < startDigits.length && i < states.length; i++) {
-        states[i] = startDigits[i];
+      // Применяем большое действие
+      const newStates = this._applyAction(states, { value: bigNumber, isFriend: false });
+      if (newStates && this._isValidState(newStates)) {
+        steps.push({
+          action: bigNumber,
+          isFriend: false,
+          states: [...newStates]
+        });
+        states = newStates;
+        this._log(`🎯 Fallback: первое действие для onlySubtraction: +${bigNumber} (вспомогательное, многозначное), состояние: [${newStates.join(', ')}]`);
       }
-
-      this._log(`🎯 Fallback режим "только вычитание": начальное число ${startNumber}, состояние: [${states.join(', ')}]`);
-    } else {
+    } else if (!this.config.onlySubtraction && steps.length < targetSteps - 1) {
       // ДЛЯ ДРУГИХ РЕЖИМОВ: Умное начало - СЛУЧАЙНОЕ маленькое действие из simpleDigits
-      if (steps.length < targetSteps - 1) {
-        // Выбираем случайное действие из simpleDigits (небольшое, чтобы не переполнить)
-        const availableSmallDigits = this.config.simpleDigits.filter(d => d <= 4);
-        const smartStartDigit = availableSmallDigits.length > 0
-          ? availableSmallDigits[Math.floor(Math.random() * availableSmallDigits.length)]
-          : this.config.simpleDigits[Math.floor(Math.random() * this.config.simpleDigits.length)];
+      // Выбираем случайное действие из simpleDigits (небольшое, чтобы не переполнить)
+      const availableSmallDigits = this.config.simpleDigits.filter(d => d <= 4);
+      const smartStartDigit = availableSmallDigits.length > 0
+        ? availableSmallDigits[Math.floor(Math.random() * availableSmallDigits.length)]
+        : this.config.simpleDigits[Math.floor(Math.random() * this.config.simpleDigits.length)];
 
-        if (smartStartDigit > 0) {
-          const baseAction = smartStartDigit * multiplier; // Базовое действие для целевого разряда
-          const fullAction = this._addRandomDigitsToAction(baseAction, states, false); // Добавляем цифры для остальных разрядов
-          const newStates = this._applyAction(states, { value: fullAction, isFriend: false });
-          if (newStates && this._isValidState(newStates)) {
-            steps.push({
-              action: fullAction,
-              isFriend: false,
-              states: [...newStates]
-            });
-            states = newStates;
-            this._log(`🎯 Случайное начало: +${fullAction} (база: ${baseAction}, с дополнительными разрядами), состояние: [${newStates.join(', ')}]`);
-          }
+      if (smartStartDigit > 0) {
+        const baseAction = smartStartDigit * multiplier; // Базовое действие для целевого разряда
+        const fullAction = this._addRandomDigitsToAction(baseAction, states, false); // Добавляем цифры для остальных разрядов
+        const newStates = this._applyAction(states, { value: fullAction, isFriend: false });
+        if (newStates && this._isValidState(newStates)) {
+          steps.push({
+            action: fullAction,
+            isFriend: false,
+            states: [...newStates]
+          });
+          states = newStates;
+          this._log(`🎯 Случайное начало: +${fullAction} (база: ${baseAction}, с дополнительными разрядами), состояние: [${newStates.join(', ')}]`);
         }
       }
     }
