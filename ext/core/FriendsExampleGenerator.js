@@ -1094,14 +1094,17 @@ export class FriendsExampleGenerator {
         continue; // Пропускаем с вероятностью 70%
       }
 
-      if (value > 0 && isFirst && !this.config.onlySubtraction) {
+      // Положительные Simple действия (для разнообразия, всегда разрешены)
+      // Кроме случая isFirst + onlySubtraction (уже обработано выше - возврат большого +88)
+      if (value > 0 && !(isFirst && this.config.onlySubtraction)) {
         if (this._canApplySimpleDirect(states, value)) {
           availableActions.push(value);
         }
       }
 
-      // Вычитание (только если не первое действие ИЛИ режим onlySubtraction)
-      if (!isFirst || this.config.onlySubtraction) {
+      // Вычитание Simple (только для не-первого действия)
+      // Для isFirst + onlySubtraction уже возвращено большое действие выше
+      if (!isFirst) {
         // Пробуем вычитание
         const subDigits = [];
         let canSubtract = true;
