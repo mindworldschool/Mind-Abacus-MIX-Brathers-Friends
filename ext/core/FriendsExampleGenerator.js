@@ -678,31 +678,57 @@ export class FriendsExampleGenerator {
     let attempts = 0;
     const maxAttempts = targetSteps * 50; // Больше попыток для большего количества шагов
 
-    // Минимум Friends = 1 (обязательно)
-    const minFriendSteps = 1;
+    // Минимум Friends = 2-3 (обязательно, чтобы была хоть какая-то тренировка)
+    const minFriendSteps = Math.max(2, Math.floor(targetSteps / 3));
 
     // Трекинг последних действий для разнообразия
     let lastSimpleDigit = null;
     let stepsSinceLastFriend = 0;
     const lastActions = []; // Для проверки повторов
 
-    this._log(`🎯 Генерация Friends примера: ${targetSteps} шагов (точно)`);
+    this._log(`🎯 Генерация Friends примера: ${targetSteps} шагов (точно), минимум Friends: ${minFriendSteps}`);
 
     while (steps.length < targetSteps && attempts < maxAttempts) {
       attempts++;
       const isFirst = steps.length === 0;
       const stepsRemaining = targetSteps - steps.length;
 
+      // 🔥 ДЛЯ onlySubtraction: ПЕРВОЕ действие ВСЕГДА простое большое
+      if (isFirst && this.config.onlySubtraction === true) {
+        const simpleAction = this._generateSimpleAction(states, isFirst, lastSimpleDigit, lastActions);
+        if (simpleAction) {
+          const newStates = this._applyAction(states, simpleAction);
+          if (newStates && this._isValidState(newStates) && !this._checkOverflow(newStates)) {
+            steps.push({
+              action: simpleAction.value,
+              isFriend: false,
+              states: [...newStates]
+            });
+            states = newStates;
+            stepsSinceLastFriend++;
+            lastSimpleDigit = Math.abs(simpleAction.value) % 10;
+            lastActions.push(simpleAction.value);
+            continue;
+          }
+        }
+      }
+
       // Решаем: пытаться ли сгенерировать Friends действие
       const needMoreFriends = friendStepsCount < minFriendSteps;
+      const friendsShortage = minFriendSteps - friendStepsCount; // Сколько еще нужно
+
+      // 🔥 КРИТИЧНО: Если остается мало шагов и не хватает Friends → ОБЯЗАТЕЛЬНО пытаемся
+      const mustTryFriend = needMoreFriends && (stepsRemaining <= friendsShortage + 1);
 
       // Стратегия: равномерное распределение Friends
-      // - Если не хватает минимума → ОБЯЗАТЕЛЬНО
+      // - Если КРИТИЧНО не хватает → ОБЯЗАТЕЛЬНО
+      // - Если не хватает минимума → вероятность 70%
       // - Если прошло 3+ шагов с последнего Friends → вероятность 50%
       // - Иначе вероятность 30%
-      const wantMoreFriends = stepsSinceLastFriend >= 3 ? 0.5 : 0.3;
+      const wantMoreFriends = needMoreFriends ? 0.7 : (stepsSinceLastFriend >= 3 ? 0.5 : 0.3);
 
-      const tryFriend = needMoreFriends ||
+      const tryFriend = mustTryFriend ||
+                        needMoreFriends ||
                         (stepsRemaining >= 2 && Math.random() < wantMoreFriends);
 
       if (tryFriend) {
@@ -776,12 +802,14 @@ export class FriendsExampleGenerator {
 
     // Проверка: достигли ли ТОЧНОГО количества шагов?
     if (steps.length !== targetSteps) {
+      this._log(`❌ Не достигли точного количества: ${steps.length}/${targetSteps}`);
       return null; // ❌ Не достигли точного количества
     }
 
-    // Проверка: есть ли хотя бы 1 Friends действие?
-    if (friendStepsCount === 0) {
-      return null; // ❌ Нет Friends
+    // Проверка: есть ли достаточно Friends действий?
+    if (friendStepsCount < minFriendSteps) {
+      this._log(`❌ Недостаточно Friends действий: ${friendStepsCount}/${minFriendSteps}`);
+      return null; // ❌ Недостаточно Friends
     }
 
     return {
@@ -1339,9 +1367,9 @@ export class FriendsExampleGenerator {
     const simpleDigitsDesc = [...this.config.simpleDigits].sort((a, b) => b - a);
 
     // Динамическое количество Friends в зависимости от количества шагов
-    // Примерно 1 Friends на каждые 3-4 шага
-    const minFriends = Math.max(1, Math.floor(targetSteps / 4));
-    const maxFriends = Math.max(2, Math.floor(targetSteps / 3));
+    // Минимум 2-3 действия для адекватной тренировки
+    const minFriends = Math.max(2, Math.floor(targetSteps / 3));
+    const maxFriends = Math.max(3, Math.floor(targetSteps / 2));
 
     if (!this.config.silent) {
       console.log(`🎯 Выбранные Friends цифры: [${this.config.selectedDigits.join(', ')}]`);
