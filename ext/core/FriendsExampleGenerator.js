@@ -997,6 +997,12 @@ export class FriendsExampleGenerator {
 
     const value = -this._digitsToNumber(actionDigits);
 
+    // Проверяем что не уходим в отрицательные значения
+    const currentNumber = this._digitsToNumber(states.slice(0, this.config.digitCount));
+    if (currentNumber < Math.abs(value)) {
+      return null; // Вычитаемое больше текущего состояния
+    }
+
     // Финальная проверка: нет МИКСА?
     if (this._hasMix(states, value, friendDigit)) {
       return null;
@@ -1110,7 +1116,9 @@ export class FriendsExampleGenerator {
 
         if (canSubtract) {
           const subValue = this._digitsToNumber(subDigits);
-          if (subValue > 0) {
+          const currentNumber = this._digitsToNumber(states.slice(0, this.config.digitCount));
+          // Проверяем что не уходим в отрицательные значения
+          if (subValue > 0 && currentNumber >= subValue) {
             availableActions.push(-subValue);
           }
         }
