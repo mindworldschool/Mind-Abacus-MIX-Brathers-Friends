@@ -1410,6 +1410,15 @@ export class FriendsExampleGenerator {
       // Убеждаемся что states[targetPosition + 1] >= 1
       if (isSubtractionFriend) {
         const nextPos = this.targetPosition + 1;
+
+        // Проверка: не выходит ли следующий разряд за пределы разрядности?
+        // Для однозначных (digitCount=1): nextPos=1, что вне разрядности
+        // Действие для изменения этого разряда будет многозначным (например +90)
+        if (nextPos >= this.config.digitCount) {
+          this._warn(`⚠️ Невозможно сгенерировать Friends вычитание для ${this.config.digitCount}-значных чисел: требуется заём из разряда ${nextPos}, который вне разрядности`);
+          break; // Прерываем попытку Friends
+        }
+
         const nextVal = states[nextPos] || 0;
 
         if (nextVal === 0) {
