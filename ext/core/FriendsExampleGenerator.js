@@ -1476,7 +1476,9 @@ export class FriendsExampleGenerator {
     this._warn(`❌ КРИТИЧНО: Fallback не смог сгенерировать пример после 10 попыток`);
     return null;
   }
-   * 5. Заполняем остальные шаги
+
+  /**
+   * Форматирование примера для отображения
    */
   _formatForDisplay(example) {
     const stepsStr = example.steps
