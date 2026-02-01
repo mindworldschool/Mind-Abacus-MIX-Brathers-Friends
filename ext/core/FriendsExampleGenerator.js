@@ -379,6 +379,24 @@ export class FriendsExampleGenerator {
   }
 
   /**
+   * Преобразовать массив состояния в число
+   *
+   * Пример: [3, 2, 1] → 123
+   *
+   * @param {number[]} states - массив разрядов [v0, v1, v2, ...]
+   * @returns {number}
+   */
+  stateToNumber(states) {
+    if (!Array.isArray(states)) return 0;
+
+    let result = 0;
+    for (let i = 0; i < states.length; i++) {
+      result += (states[i] || 0) * Math.pow(10, i);
+    }
+    return result;
+  }
+
+  /**
    * Проверить: можно ли применить многозначное действие по правилу Просто?
    *
    * КРИТИЧНО: Проверяем КАЖДЫЙ разряд отдельно!
