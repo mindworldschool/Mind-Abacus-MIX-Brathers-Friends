@@ -1503,13 +1503,88 @@ export class FriendsExampleGenerator {
     }
 
     this._warn(`❌ КРИТИЧНО: Fallback не смог сгенерировать пример после 10 попыток`);
-    return null;
+    this._warn(`Конфигурация: digitCount=${this.config.digitCount}, stepsCount=${this.config.stepsCount}, selectedDigits=[${this.config.selectedDigits.join(',')}], onlySubtraction=${this.config.onlySubtraction}, onlyAddition=${this.config.onlyAddition}`);
+
+    // Возвращаем минимальный валидный пример вместо null
+    this._warn(`⚠️ Возвращаем минимальный пример как последнее средство`);
+    return this._generateMinimalExample();
+  }
+
+  /**
+   * Генерирует минимальный валидный пример как последнее средство
+   */
+  _generateMinimalExample() {
+    this._warn("⚠️ Генерируем минимальный пример");
+
+    const targetSteps = this.config.stepsCount;
+    const steps = [];
+    let states = Array(this.stateDigitCount).fill(0);
+
+    // Первая цифра Friends из выбранных
+    const firstFriendDigit = this.config.selectedDigits[0] || 1;
+
+    // Для каждого шага
+    for (let i = 0; i < targetSteps; i++) {
+      let action, newStates;
+
+      if (i === 0) {
+        // Первое действие: +10 для подготовки
+        action = 10;
+        newStates = this._applyAction(states, { value: action, isFriend: false });
+      } else if (i === 1) {
+        // Второе действие: Friends вычитание
+        action = -firstFriendDigit;
+        const friend = 10 - firstFriendDigit;
+        newStates = [...states];
+        newStates[this.targetPosition + 1] = (newStates[this.targetPosition + 1] || 0) - 1;
+        newStates[this.targetPosition] = (newStates[this.targetPosition] || 0) + friend;
+
+        steps.push({
+          action: action,
+          isFriend: true,
+          friendN: firstFriendDigit,
+          formula: this._buildFormula(action, this.targetPosition),
+          states: [...newStates]
+        });
+        states = newStates;
+        continue;
+      } else {
+        // Остальные: простые действия +1 или -1
+        action = i % 2 === 0 ? 1 : -1;
+        const currentNumber = this._digitsToNumber(states.slice(0, this.config.digitCount));
+        if (action < 0 && currentNumber < Math.abs(action)) {
+          action = 1; // Меняем на +1 если не можем вычесть
+        }
+        newStates = this._applyAction(states, { value: action, isFriend: false });
+      }
+
+      if (newStates && this._isValidState(newStates)) {
+        steps.push({
+          action: action,
+          isFriend: i === 1,
+          states: [...newStates]
+        });
+        states = newStates;
+      }
+    }
+
+    return {
+      start: Array(this.stateDigitCount).fill(0),
+      steps,
+      answer: [...states]
+    };
   }
 
   /**
    * Формат для trainer_logic.js
    */
   toTrainerFormat(example) {
+    // Защита от null/undefined
+    if (!example || !example.steps) {
+      console.error("❌ toTrainerFormat получил невалидный example:", example);
+      throw new Error("Невалидный пример для форматирования");
+    }
+
     const formattedSteps = [];
 
     for (const step of example.steps) {
