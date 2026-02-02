@@ -662,8 +662,9 @@ export class FriendsExampleGenerator {
     let attempts = 0;
     const maxAttempts = targetSteps * 50; // Больше попыток для большего количества шагов
 
-    // Минимум Friends = 1 (обязательно)
-    const minFriendSteps = 1;
+    // Минимум Friends зависит от количества действий
+    // 3 действия → 1 Friends, 7 действий → 2 Friends, 9 действий → 3 Friends
+    const minFriendSteps = Math.max(1, Math.floor(targetSteps / 3));
 
     // Трекинг последних действий для разнообразия
     let lastSimpleDigit = null;
@@ -1002,6 +1003,40 @@ export class FriendsExampleGenerator {
   _generateSimpleAction(states, isFirst, lastDigit = null, lastActions = []) {
     const availableActions = [];
 
+    // 🔥 СПЕЦИАЛЬНАЯ ЛОГИКА: Для onlySubtraction первое действие - БОЛЬШОЕ ПОЛОЖИТЕЛЬНОЕ
+    if (isFirst && this.config.onlySubtraction === true) {
+      // Генерируем большое начальное число в зависимости от разрядности
+      let minValue, maxValue;
+
+      if (this.config.digitCount === 1) {
+        // Однозначные → двузначное первое действие +20..+99
+        minValue = 20;
+        maxValue = 99;
+      } else if (this.config.digitCount === 2) {
+        // Двузначные → двузначное первое действие +50..+99
+        minValue = 50;
+        maxValue = 99;
+      } else if (this.config.digitCount === 3) {
+        // Трехзначные → трехзначное первое действие +500..+999
+        minValue = 500;
+        maxValue = 999;
+      } else {
+        // Для больших разрядностей: от половины максимума до максимума
+        const maxPossible = Math.pow(10, this.config.digitCount) - 1;
+        minValue = Math.floor(maxPossible / 2);
+        maxValue = maxPossible;
+      }
+
+      const bigNumber = minValue + Math.floor(Math.random() * (maxValue - minValue + 1));
+      this._log(`🎯 Первое действие для onlySubtraction: +${bigNumber} (вспомогательное)`);
+
+      return {
+        value: bigNumber,
+        isFriend: false,
+        isStartingNumber: true  // 🔥 Флаг для _applyAction
+      };
+    }
+
     // Генерируем многозначные простые действия
     const maxActionValue = Math.pow(10, this.config.digitCount) - 1;
 
@@ -1115,13 +1150,20 @@ export class FriendsExampleGenerator {
     const newStates = [...states];
     const value = actionObj.value;
     const isFriend = actionObj.isFriend;
+    const isStartingNumber = actionObj.isStartingNumber || false;
 
     if (!isFriend) {
       // Простое действие: применяем к каждому разряду
-      const actionDigits = this._numberToDigits(Math.abs(value), this.config.digitCount);
+      // 🔥 Для isStartingNumber используем полную разрядность числа, не обрезаем до digitCount
+      const actualDigitCount = isStartingNumber
+        ? Math.max(this.config.digitCount, Math.floor(Math.log10(Math.abs(value))) + 1)
+        : this.config.digitCount;
+
+      const actionDigits = this._numberToDigits(Math.abs(value), actualDigitCount);
       const isAddition = value >= 0;
 
-      for (let pos = 0; pos < this.config.digitCount; pos++) {
+      // Применяем ко всем разрядам действия (не только до digitCount!)
+      for (let pos = 0; pos < actionDigits.length; pos++) {
         const digit = actionDigits[pos] || 0;
         if (isAddition) {
           newStates[pos] = (newStates[pos] || 0) + digit;
