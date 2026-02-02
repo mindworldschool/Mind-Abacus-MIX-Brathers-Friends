@@ -118,7 +118,9 @@ export class FriendsExampleGenerator {
   Целевой разряд: ${this.targetPosition} (${this._getPositionName(this.targetPosition)})
   Точное количество шагов: ${this.config.stepsCount}
   Максимальное значение: ${this.maxValue}
-  Братья активны: ${this.config.brothersActive} (верхняя бусина ${this.config.brothersActive ? 'разрешена' : 'запрещена'})`);
+  Братья активны: ${this.config.brothersActive} (верхняя бусина ${this.config.brothersActive ? 'разрешена' : 'запрещена'})
+  🚩 Флаг onlyAddition: ${this.config.onlyAddition === true ? 'ДА' : 'НЕТ'}
+  🚩 Флаг onlySubtraction: ${this.config.onlySubtraction === true ? 'ДА' : 'НЕТ'}`);
   }
 
   // Вспомогательный метод: название разряда
@@ -711,26 +713,6 @@ export class FriendsExampleGenerator {
       attempts++;
       const isFirst = steps.length === 0;
       const stepsRemaining = targetSteps - steps.length;
-
-      // 🔥 ДЛЯ onlySubtraction: ПЕРВОЕ действие ВСЕГДА простое большое
-      if (isFirst && this.config.onlySubtraction === true) {
-        const simpleAction = this._generateSimpleAction(states, isFirst, lastSimpleDigit, lastActions);
-        if (simpleAction) {
-          const newStates = this._applyAction(states, simpleAction);
-          if (newStates && this._isValidState(newStates) && !this._checkOverflow(newStates)) {
-            steps.push({
-              action: simpleAction.value,
-              isFriend: false,
-              states: [...newStates]
-            });
-            states = newStates;
-            stepsSinceLastFriend++;
-            lastSimpleDigit = Math.abs(simpleAction.value) % 10;
-            lastActions.push(simpleAction.value);
-            continue;
-          }
-        }
-      }
 
       // Решаем: пытаться ли сгенерировать Friends действие
       const needMoreFriends = friendStepsCount < minFriendSteps;
@@ -1400,27 +1382,6 @@ export class FriendsExampleGenerator {
         const isFirst = steps.length === 0;
         const stepsRemaining = targetSteps - steps.length;
 
-        // 🔥 ДЛЯ onlySubtraction: ПЕРВОЕ действие ВСЕГДА простое большое
-        if (isFirst && this.config.onlySubtraction === true) {
-          const simpleAction = this._generateSimpleAction(states, isFirst, lastSimpleDigit, lastActions);
-          if (simpleAction) {
-            const newStates = this._applyAction(states, simpleAction);
-            if (newStates && this._isValidState(newStates) && !this._checkOverflow(newStates)) {
-              steps.push({
-                action: simpleAction.value,
-                isFriend: false,
-                states: [...newStates]
-              });
-              states = newStates;
-              stepsSinceLastFriend++;
-              lastSimpleDigit = Math.abs(simpleAction.value) % 10;
-              lastActions.push(simpleAction.value);
-              this._log(`Fallback: первое действие +${simpleAction.value}`);
-              continue;
-            }
-          }
-        }
-
         // Решаем: пытаться ли Friends
         const needMoreFriends = friendStepsCount < minFriendSteps;
         const friendsShortage = minFriendSteps - friendStepsCount;
@@ -1514,27 +1475,28 @@ export class FriendsExampleGenerator {
    * Генерирует минимальный валидный пример как последнее средство
    */
   _generateMinimalExample() {
-    this._warn("⚠️ Генерируем минимальный пример");
+    this._warn("⚠️ Генерируем минимальный пример с рандомом");
 
     const targetSteps = this.config.stepsCount;
     const steps = [];
     let states = Array(this.stateDigitCount).fill(0);
 
-    // Первая цифра Friends из выбранных
-    const firstFriendDigit = this.config.selectedDigits[0] || 1;
+    // Случайная цифра Friends из выбранных
+    const randomIndex = Math.floor(Math.random() * this.config.selectedDigits.length);
+    const friendDigit = this.config.selectedDigits[randomIndex] || 1;
 
     // Для каждого шага
     for (let i = 0; i < targetSteps; i++) {
       let action, newStates;
 
       if (i === 0) {
-        // Первое действие: +10 для подготовки
-        action = 10;
+        // Первое действие: случайное 10-30 для подготовки
+        action = 10 + Math.floor(Math.random() * 21); // 10-30
         newStates = this._applyAction(states, { value: action, isFriend: false });
       } else if (i === 1) {
-        // Второе действие: Friends вычитание
-        action = -firstFriendDigit;
-        const friend = 10 - firstFriendDigit;
+        // Второе действие: Friends вычитание с выбранной цифрой
+        action = -friendDigit;
+        const friend = 10 - friendDigit;
         newStates = [...states];
         newStates[this.targetPosition + 1] = (newStates[this.targetPosition + 1] || 0) - 1;
         newStates[this.targetPosition] = (newStates[this.targetPosition] || 0) + friend;
@@ -1542,18 +1504,21 @@ export class FriendsExampleGenerator {
         steps.push({
           action: action,
           isFriend: true,
-          friendN: firstFriendDigit,
+          friendN: friendDigit,
           formula: this._buildFormula(action, this.targetPosition),
           states: [...newStates]
         });
         states = newStates;
         continue;
       } else {
-        // Остальные: простые действия +1 или -1
-        action = i % 2 === 0 ? 1 : -1;
+        // Остальные: случайные простые действия ±1..±5
+        const magnitude = 1 + Math.floor(Math.random() * 5); // 1-5
+        const sign = Math.random() < 0.5 ? 1 : -1;
+        action = magnitude * sign;
+
         const currentNumber = this._digitsToNumber(states.slice(0, this.config.digitCount));
         if (action < 0 && currentNumber < Math.abs(action)) {
-          action = 1; // Меняем на +1 если не можем вычесть
+          action = Math.abs(action); // Меняем на положительное если не можем вычесть
         }
         newStates = this._applyAction(states, { value: action, isFriend: false });
       }
@@ -1567,6 +1532,8 @@ export class FriendsExampleGenerator {
         states = newStates;
       }
     }
+
+    this._warn(`✅ Минимальный пример создан: ${steps.map(s => (s.action >= 0 ? '+' : '') + s.action).join(', ')}`);
 
     return {
       start: Array(this.stateDigitCount).fill(0),
