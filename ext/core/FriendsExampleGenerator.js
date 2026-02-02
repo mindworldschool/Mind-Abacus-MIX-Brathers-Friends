@@ -1507,6 +1507,39 @@ export class FriendsExampleGenerator {
   }
 
   /**
+   * Формат для trainer_logic.js
+   */
+  toTrainerFormat(example) {
+    const formattedSteps = [];
+
+    for (const step of example.steps) {
+      if (step.isFriend) {
+        // Friends шаг - возвращаем объект с формулой
+        const value = step.action;
+        const sign = value >= 0 ? '+' : '';
+
+        formattedSteps.push({
+          step: `${sign}${value}`,
+          isFriend: true,
+          friendN: step.friendN,
+          formula: step.formula
+        });
+      } else {
+        // Простой шаг - возвращаем строку
+        const value = step.action;
+        const sign = value >= 0 ? '+' : '';
+        formattedSteps.push(`${sign}${value}`);
+      }
+    }
+
+    return {
+      start: 0, // Всегда стартуем с 0
+      steps: formattedSteps,
+      answer: this.stateToNumber(example.answer)
+    };
+  }
+
+  /**
    * Форматирование примера для отображения
    */
   _formatForDisplay(example) {
