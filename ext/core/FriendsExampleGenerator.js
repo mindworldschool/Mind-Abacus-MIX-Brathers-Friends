@@ -337,6 +337,8 @@ export class FriendsExampleGenerator {
   // ========== ГЕНЕРАЦИЯ ПЕРВОГО ДЕЙСТВИЯ ==========
 
   _generateFirstAction() {
+    this._log(`🔍 _generateFirstAction вызван: digitCount=${this.config.digitCount}, onlySubtraction=${this.config.onlySubtraction}`);
+
     // Для onlySubtraction - БОЛЬШОЕ действие
     if (this.config.onlySubtraction) {
       let minValue, maxValue;
@@ -364,8 +366,9 @@ export class FriendsExampleGenerator {
     // Для остальных режимов - обычное маленькое действие
     const maxValue = Math.pow(10, this.config.digitCount) - 1;
     const minValue = Math.pow(10, this.config.digitCount - 1);
+    this._log(`🔍 Диапазон: [${minValue}, ${maxValue}]`);
     const value = minValue + Math.floor(Math.random() * (maxValue - minValue + 1));
-    this._log(`🎯 Первое действие: +${value}`);
+    this._log(`🎯 Первое действие (обычный режим): +${value}`);
     return value;
   }
 
@@ -458,6 +461,7 @@ export class FriendsExampleGenerator {
   _generateSimpleAction(states) {
     const maxValue = Math.pow(10, this.config.digitCount) - 1;
     const currentNumber = this.stateToNumber(states.slice(0, this.config.digitCount));
+    this._log(`🔍 _generateSimpleAction: maxValue=${maxValue}, currentNumber=${currentNumber}`);
 
     // Пробуем случайное действие
     for (let attempt = 0; attempt < 50; attempt++) {
@@ -470,10 +474,12 @@ export class FriendsExampleGenerator {
         continue;
       }
 
+      this._log(`🔍 Generated simple action: ${action >= 0 ? '+' : ''}${action}`);
       return action;
     }
 
     // Fallback: простое +1
+    this._log(`🔍 Fallback simple action: +1`);
     return 1;
   }
 
