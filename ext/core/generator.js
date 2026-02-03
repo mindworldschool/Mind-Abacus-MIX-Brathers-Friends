@@ -356,6 +356,13 @@ if (!settings.silent)       console.log("   📌 Только вычитание
 
       // Генерируем пример
       const rawExample = friendsGenerator.generate();
+
+      // Проверка на null
+      if (!rawExample) {
+        console.error("❌ [generator] Friends генератор вернул null! Проверьте настройки.");
+        throw new Error("Не удалось сгенерировать пример Friends. Попробуйте изменить настройки.");
+      }
+
       const formatted = friendsGenerator.toTrainerFormat(rawExample);
 
 if (!settings.silent)       console.log(
