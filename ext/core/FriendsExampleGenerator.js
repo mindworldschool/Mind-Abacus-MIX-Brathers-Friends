@@ -28,6 +28,53 @@
 //    - Friends действия: ТОЛЬКО +
 //    - Simple действия: могут быть + или -
 
+/**
+ * ПРИОРИТЕТ 3.1: Конфигурация направления действий для Friends
+ * Инкапсулирует логику работы с флагами onlyAddition/onlySubtraction
+ */
+class ActionDirectionConfig {
+  constructor(onlyAddition, onlySubtraction) {
+    // Валидация: флаги взаимоисключающие
+    if (onlyAddition && onlySubtraction) {
+      throw new Error('Флаги onlyAddition и onlySubtraction не могут быть активны одновременно');
+    }
+
+    this.onlyAddition = onlyAddition === true;
+    this.onlySubtraction = onlySubtraction === true;
+    this.isMixed = !this.onlyAddition && !this.onlySubtraction;
+  }
+
+  /**
+   * Проверяет, разрешено ли Friends-сложение в текущем режиме
+   */
+  canAddition() {
+    return this.onlyAddition || this.isMixed;
+  }
+
+  /**
+   * Проверяет, разрешено ли Friends-вычитание в текущем режиме
+   */
+  canSubtraction() {
+    return this.onlySubtraction || this.isMixed;
+  }
+
+  /**
+   * Требуется ли большое первое действие (для onlySubtraction)
+   */
+  needsBigFirstAction() {
+    return this.onlySubtraction;
+  }
+
+  /**
+   * Возвращает название режима для логирования
+   */
+  getModeName() {
+    if (this.onlyAddition) return 'ТОЛЬКО СЛОЖЕНИЕ';
+    if (this.onlySubtraction) return 'ТОЛЬКО ВЫЧИТАНИЕ';
+    return 'СМЕШАННЫЙ';
+  }
+}
+
 export class FriendsExampleGenerator {
   constructor(config = {}) {
     this.config = {
@@ -45,6 +92,18 @@ export class FriendsExampleGenerator {
       silent: config.silent || false,
       blocks: config.blocks || {}
     };
+
+    // ПРИОРИТЕТ 3.1: Создаем объект управления направлением действий
+    // Инкапсулирует валидацию конфликта флагов (ПРИОРИТЕТ 1.2)
+    try {
+      this.directionConfig = new ActionDirectionConfig(
+        this.config.onlyAddition,
+        this.config.onlySubtraction
+      );
+    } catch (error) {
+      this._error('❌ ОШИБКА КОНФИГУРАЦИИ:', error.message);
+      throw error;
+    }
 
     // Валидация
     if (this.config.selectedDigits.length === 0) {
@@ -69,8 +128,7 @@ export class FriendsExampleGenerator {
   Разрядность действий: ${this.config.digitCount}
   Целевой разряд: ${this.targetPosition}
   Количество шагов: ${this.config.stepsCount}
-  🚩 onlyAddition: ${this.config.onlyAddition ? 'ДА' : 'НЕТ'}
-  🚩 onlySubtraction: ${this.config.onlySubtraction ? 'ДА' : 'НЕТ'}`);
+  🚩 Режим направления: ${this.directionConfig.getModeName()}`);
   }
 
   _log(...args) {
@@ -290,7 +348,7 @@ export class FriendsExampleGenerator {
 
   generate() {
     this._log("\n🎯 === НАЧАЛО ГЕНЕРАЦИИ ===");
-    this._log(`Режим: ${this.config.onlySubtraction ? 'ТОЛЬКО ВЫЧИТАНИЕ' : this.config.onlyAddition ? 'ТОЛЬКО СЛОЖЕНИЕ' : 'СМЕШАННЫЙ'}`);
+    this._log(`Режим: ${this.directionConfig.getModeName()}`);
 
     const maxAttempts = 100;
 
@@ -316,8 +374,8 @@ export class FriendsExampleGenerator {
     const minFriendSteps = Math.max(1, Math.floor(targetSteps / 3));
     let friendStepsCount = 0;
 
-    // Убираем избыточное логирование для ускорения генерации
-    // this._log(`Цель: ${targetSteps} шагов, минимум Friends: ${minFriendSteps}`);
+    // ПРИОРИТЕТ 2.2: Улучшенное логирование для отладки
+    this._log(`📊 Цель: ${targetSteps} шагов, минимум Friends: ${minFriendSteps}`);
 
     // ШАГ 1: ПЕРВОЕ ДЕЙСТВИЕ
     const firstAction = this._generateFirstAction();
@@ -342,8 +400,7 @@ export class FriendsExampleGenerator {
       states: [...newStates]
     });
     states = newStates;
-    // Убираем детальные логи для ускорения
-    // this._log(`Первое действие: ${firstAction >= 0 ? '+' : ''}${firstAction}, состояние: [${states.join(', ')}]`);
+    this._log(`🎬 Первое действие: ${firstAction >= 0 ? '+' : ''}${firstAction}, состояние: [${states.join(', ')}]`);
 
     // ШАГ 2: ОСНОВНОЙ ЦИКЛ
     let attempts = 0;
@@ -413,11 +470,10 @@ export class FriendsExampleGenerator {
   // ========== ГЕНЕРАЦИЯ ПЕРВОГО ДЕЙСТВИЯ ==========
 
   _generateFirstAction() {
-    // Убираем детальные логи
-    // this._log(`🔍 _generateFirstAction вызван: digitCount=${this.config.digitCount}, onlySubtraction=${this.config.onlySubtraction}`);
+    this._log(`🔍 _generateFirstAction: digitCount=${this.config.digitCount}, режим=${this.directionConfig.getModeName()}`);
 
     // Для onlySubtraction - БОЛЬШОЕ действие
-    if (this.config.onlySubtraction) {
+    if (this.directionConfig.needsBigFirstAction()) {
       let minValue, maxValue;
 
       if (this.config.digitCount === 1) {
@@ -436,16 +492,15 @@ export class FriendsExampleGenerator {
       }
 
       const bigNumber = minValue + Math.floor(Math.random() * (maxValue - minValue + 1));
-      // this._log(`🎯 Первое действие (onlySubtraction): +${bigNumber}`);
+      this._log(`🎯 Первое действие (onlySubtraction): +${bigNumber} (диапазон: [${minValue}, ${maxValue}])`);
       return bigNumber;
     }
 
     // Для остальных режимов - обычное маленькое действие
     const maxValue = Math.pow(10, this.config.digitCount) - 1;
     const minValue = Math.pow(10, this.config.digitCount - 1);
-    // this._log(`🔍 Диапазон: [${minValue}, ${maxValue}]`);
     const value = minValue + Math.floor(Math.random() * (maxValue - minValue + 1));
-    // this._log(`🎯 Первое действие (обычный режим): +${value}`);
+    this._log(`🎯 Первое действие (обычный режим): +${value} (диапазон: [${minValue}, ${maxValue}])`);
     return value;
   }
 
@@ -459,8 +514,9 @@ export class FriendsExampleGenerator {
     const digits = [...this.config.selectedDigits].sort(() => Math.random() - 0.5);
 
     for (const friendDigit of digits) {
-      // Пробуем сложение (если не запрещено)
-      if (!this.config.onlySubtraction) {
+      // ПРИОРИТЕТ 2.1: Проверка флагов с комментариями
+      // Пробуем сложение (разрешено если: onlyAddition=true ИЛИ смешанный режим)
+      if (this.directionConfig.canAddition()) {
         const addReq = this._getAdditionRequirements(friendDigit);
         if (addReq.states.includes(targetVal)) {
           const friend = 10 - friendDigit;
@@ -475,8 +531,9 @@ export class FriendsExampleGenerator {
         }
       }
 
-      // Пробуем вычитание (если не запрещено)
-      if (!this.config.onlyAddition) {
+      // ПРИОРИТЕТ 2.1: Проверка флагов с комментариями
+      // Пробуем вычитание (разрешено если: onlySubtraction=true ИЛИ смешанный режим)
+      if (this.directionConfig.canSubtraction()) {
         const subReq = this._getSubtractionRequirements(friendDigit);
         if (subReq.states.includes(targetVal)) {
           const friend = 10 - friendDigit;
