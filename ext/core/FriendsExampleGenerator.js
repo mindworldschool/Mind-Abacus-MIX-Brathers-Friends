@@ -206,6 +206,58 @@ export class FriendsExampleGenerator {
     return true;
   }
 
+  /**
+   * Нормализация состояния - обработка переносов между разрядами.
+   * Если разряд >9, переносим в следующий разряд.
+   * Если разряд <0, занимаем из следующего разряда.
+   * Возвращает null если нормализация невозможна (уход в отрицательные числа).
+   */
+  _normalizeState(states) {
+    const normalized = [...states];
+
+    // Обрабатываем переносы снизу вверх
+    for (let i = 0; i < normalized.length; i++) {
+      let value = normalized[i] || 0;
+
+      // Перенос вверх (если разряд >= 10)
+      if (value >= 10) {
+        const carry = Math.floor(value / 10);
+        normalized[i] = value % 10;
+        if (i + 1 < normalized.length) {
+          normalized[i + 1] = (normalized[i + 1] || 0) + carry;
+        } else {
+          // Переполнение за пределы массива
+          this._warn(`⚠️ Переполнение: разряд ${i} = ${value}, нет места для переноса`);
+          return null;
+        }
+      }
+
+      // Заём из старшего разряда (если разряд < 0)
+      else if (value < 0) {
+        const borrow = Math.ceil(-value / 10);
+        normalized[i] = value + (borrow * 10);
+        if (i + 1 < normalized.length) {
+          normalized[i + 1] = (normalized[i + 1] || 0) - borrow;
+        } else {
+          // Нельзя занять - число станет отрицательным
+          this._warn(`⚠️ Невозможно занять: разряд ${i} = ${value}, старшего разряда нет`);
+          return null;
+        }
+      }
+    }
+
+    // Финальная проверка: все разряды должны быть в [0..9]
+    for (let i = 0; i < normalized.length; i++) {
+      const v = normalized[i] || 0;
+      if (v < 0 || v > 9) {
+        this._warn(`⚠️ Нормализация не удалась: разряд ${i} = ${v}`);
+        return null;
+      }
+    }
+
+    return normalized;
+  }
+
   _buildFormula(value, position) {
     const isPositive = value >= 0;
     const digit = Math.abs(this._numberToDigits(Math.abs(value), this.config.digitCount)[position]);
@@ -216,6 +268,22 @@ export class FriendsExampleGenerator {
     } else {
       return `${value} = -10 + ${friend}`;
     }
+  }
+
+  /**
+   * Проверка переполнения разрядности.
+   * Для 2-значных чисел результат должен быть 0-99, не больше!
+   * По ТЗ: "Результат не выходит за пределы выбранной разрядности"
+   */
+  _checkOverflow(states) {
+    // Проверяем, что все разряды ВЫШЕ digitCount равны 0
+    for (let i = this.config.digitCount; i < this.stateDigitCount; i++) {
+      if (states[i] !== 0) {
+        this._warn(`⚠️ Переполнение разрядности: разряд ${i} = ${states[i]} (должен быть 0)`);
+        return true; // Есть переполнение!
+      }
+    }
+    return false; // Нет переполнения
   }
 
   // ========== ГЛАВНАЯ ЛОГИКА ГЕНЕРАЦИИ ==========
@@ -262,6 +330,10 @@ export class FriendsExampleGenerator {
       this._warn("❌ Первое действие привело к невалидному состоянию");
       return null;
     }
+    if (this._checkOverflow(newStates)) {
+      this._warn("❌ Первое действие вызвало переполнение разрядности");
+      return null;
+    }
 
     steps.push({
       action: firstAction,
@@ -288,7 +360,7 @@ export class FriendsExampleGenerator {
         action = this._tryGenerateFriendAction(states);
         if (action) {
           const newStates = this._applyFriendAction(states, action);
-          if (newStates && this._isValidState(newStates)) {
+          if (newStates && this._isValidState(newStates) && !this._checkOverflow(newStates)) {
             steps.push({
               action: action.value,
               isFriend: true,
@@ -308,7 +380,7 @@ export class FriendsExampleGenerator {
       action = this._generateSimpleAction(states);
       if (action) {
         const newStates = this._applySimpleAction(states, action);
-        if (newStates && this._isValidState(newStates)) {
+        if (newStates && this._isValidState(newStates) && !this._checkOverflow(newStates)) {
           steps.push({
             action: action,
             isFriend: false,
@@ -458,28 +530,76 @@ export class FriendsExampleGenerator {
 
   // ========== ГЕНЕРАЦИЯ SIMPLE ДЕЙСТВИЯ ==========
 
+  /**
+   * Генерирует простое действие (без Brothers и Friends).
+   * Действие представлено одним числом (например, +23 или -15).
+   * Проверяет что каждый разряд можно изменить простым жестом.
+   */
   _generateSimpleAction(states) {
-    const maxValue = Math.pow(10, this.config.digitCount) - 1;
     const currentNumber = this.stateToNumber(states.slice(0, this.config.digitCount));
-    this._log(`🔍 _generateSimpleAction: maxValue=${maxValue}, currentNumber=${currentNumber}`);
+    const maxValue = Math.pow(10, this.config.digitCount) - 1;
+    this._log(`🔍 _generateSimpleAction: текущее число=${currentNumber}, maxValue=${maxValue}`);
 
-    // Пробуем случайное действие
-    for (let attempt = 0; attempt < 50; attempt++) {
+    // Пробуем сгенерировать корректное простое действие
+    for (let attempt = 0; attempt < 100; attempt++) {
+      // Генерируем случайное число
       const value = 1 + Math.floor(Math.random() * maxValue);
-      const sign = Math.random() < 0.5 ? 1 : -1;
-      const action = value * sign;
+      const isAddition = Math.random() < 0.5;
+      const action = isAddition ? value : -value;
 
       // Проверяем что не уйдем в минус
-      if (action < 0 && currentNumber < Math.abs(action)) {
+      if (!isAddition && currentNumber < value) {
         continue;
       }
 
-      this._log(`🔍 Generated simple action: ${action >= 0 ? '+' : ''}${action}`);
-      return action;
+      // Проверяем что каждый разряд можно изменить простым способом
+      const actionDigits = this._numberToDigits(value, this.config.digitCount);
+      let isValid = true;
+
+      for (let pos = 0; pos < this.config.digitCount; pos++) {
+        const currentVal = states[pos] || 0;
+        const digit = actionDigits[pos] || 0;
+
+        if (digit === 0) continue;  // Нет изменений в этом разряде
+
+        if (isAddition) {
+          if (!this._canPlusDirect(currentVal, digit)) {
+            isValid = false;
+            break;
+          }
+        } else {
+          if (!this._canMinusDirect(currentVal, digit)) {
+            isValid = false;
+            break;
+          }
+        }
+      }
+
+      if (isValid) {
+        this._log(`🔍 Сгенерировано простое действие: ${action >= 0 ? '+' : ''}${action}`);
+        return action;
+      }
     }
 
-    // Fallback: простое +1
-    this._log(`🔍 Fallback simple action: +1`);
+    // Fallback: пробуем простые однозначные действия
+    for (let digit = 1; digit <= 9; digit++) {
+      // Пробуем сложение
+      if (this._canPlusDirect(states[0] || 0, digit)) {
+        this._log(`🔍 Fallback: простое действие +${digit}`);
+        return digit;
+      }
+    }
+
+    for (let digit = 1; digit <= 9; digit++) {
+      // Пробуем вычитание
+      if (this._canMinusDirect(states[0] || 0, digit) && currentNumber >= digit) {
+        this._log(`🔍 Fallback: простое действие -${digit}`);
+        return -digit;
+      }
+    }
+
+    // Последний fallback: +1 без проверки
+    this._log(`🔍 Последний fallback: +1`);
     return 1;
   }
 
@@ -500,7 +620,8 @@ export class FriendsExampleGenerator {
       }
     }
 
-    return newStates;
+    // Нормализуем переносы
+    return this._normalizeState(newStates);
   }
 
   _applyFriendAction(states, action) {
@@ -534,7 +655,8 @@ export class FriendsExampleGenerator {
       }
     }
 
-    return newStates;
+    // Нормализуем переносы
+    return this._normalizeState(newStates);
   }
 
   // ========== МИНИМАЛЬНЫЙ ПРИМЕР ==========
