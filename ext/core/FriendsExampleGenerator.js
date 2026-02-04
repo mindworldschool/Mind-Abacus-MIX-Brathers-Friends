@@ -316,7 +316,8 @@ export class FriendsExampleGenerator {
     const minFriendSteps = Math.max(1, Math.floor(targetSteps / 3));
     let friendStepsCount = 0;
 
-    this._log(`Цель: ${targetSteps} шагов, минимум Friends: ${minFriendSteps}`);
+    // Убираем избыточное логирование для ускорения генерации
+    // this._log(`Цель: ${targetSteps} шагов, минимум Friends: ${minFriendSteps}`);
 
     // ШАГ 1: ПЕРВОЕ ДЕЙСТВИЕ
     const firstAction = this._generateFirstAction();
@@ -341,7 +342,8 @@ export class FriendsExampleGenerator {
       states: [...newStates]
     });
     states = newStates;
-    this._log(`Первое действие: ${firstAction >= 0 ? '+' : ''}${firstAction}, состояние: [${states.join(', ')}]`);
+    // Убираем детальные логи для ускорения
+    // this._log(`Первое действие: ${firstAction >= 0 ? '+' : ''}${firstAction}, состояние: [${states.join(', ')}]`);
 
     // ШАГ 2: ОСНОВНОЙ ЦИКЛ
     let attempts = 0;
@@ -370,7 +372,8 @@ export class FriendsExampleGenerator {
             });
             states = newStates;
             friendStepsCount++;
-            this._log(`Шаг ${steps.length}: Friends ${action.value >= 0 ? '+' : ''}${action.value}, состояние: [${states.join(', ')}]`);
+            // Убираем детальные логи для ускорения
+            // this._log(`Шаг ${steps.length}: Friends ${action.value >= 0 ? '+' : ''}${action.value}, состояние: [${states.join(', ')}]`);
             continue;
           }
         }
@@ -387,7 +390,8 @@ export class FriendsExampleGenerator {
             states: [...newStates]
           });
           states = newStates;
-          this._log(`Шаг ${steps.length}: Simple ${action >= 0 ? '+' : ''}${action}, состояние: [${states.join(', ')}]`);
+          // Убираем детальные логи для ускорения
+          // this._log(`Шаг ${steps.length}: Simple ${action >= 0 ? '+' : ''}${action}, состояние: [${states.join(', ')}]`);
         }
       }
     }
@@ -409,7 +413,8 @@ export class FriendsExampleGenerator {
   // ========== ГЕНЕРАЦИЯ ПЕРВОГО ДЕЙСТВИЯ ==========
 
   _generateFirstAction() {
-    this._log(`🔍 _generateFirstAction вызван: digitCount=${this.config.digitCount}, onlySubtraction=${this.config.onlySubtraction}`);
+    // Убираем детальные логи
+    // this._log(`🔍 _generateFirstAction вызван: digitCount=${this.config.digitCount}, onlySubtraction=${this.config.onlySubtraction}`);
 
     // Для onlySubtraction - БОЛЬШОЕ действие
     if (this.config.onlySubtraction) {
@@ -431,16 +436,16 @@ export class FriendsExampleGenerator {
       }
 
       const bigNumber = minValue + Math.floor(Math.random() * (maxValue - minValue + 1));
-      this._log(`🎯 Первое действие (onlySubtraction): +${bigNumber}`);
+      // this._log(`🎯 Первое действие (onlySubtraction): +${bigNumber}`);
       return bigNumber;
     }
 
     // Для остальных режимов - обычное маленькое действие
     const maxValue = Math.pow(10, this.config.digitCount) - 1;
     const minValue = Math.pow(10, this.config.digitCount - 1);
-    this._log(`🔍 Диапазон: [${minValue}, ${maxValue}]`);
+    // this._log(`🔍 Диапазон: [${minValue}, ${maxValue}]`);
     const value = minValue + Math.floor(Math.random() * (maxValue - minValue + 1));
-    this._log(`🎯 Первое действие (обычный режим): +${value}`);
+    // this._log(`🎯 Первое действие (обычный режим): +${value}`);
     return value;
   }
 
@@ -538,7 +543,8 @@ export class FriendsExampleGenerator {
   _generateSimpleAction(states) {
     const currentNumber = this.stateToNumber(states.slice(0, this.config.digitCount));
     const maxValue = Math.pow(10, this.config.digitCount) - 1;
-    this._log(`🔍 _generateSimpleAction: текущее число=${currentNumber}, maxValue=${maxValue}`);
+    // Убираем детальные логи
+    // this._log(`🔍 _generateSimpleAction: текущее число=${currentNumber}, maxValue=${maxValue}`);
 
     // Пробуем сгенерировать корректное простое действие
     for (let attempt = 0; attempt < 100; attempt++) {
@@ -576,7 +582,7 @@ export class FriendsExampleGenerator {
       }
 
       if (isValid) {
-        this._log(`🔍 Сгенерировано простое действие: ${action >= 0 ? '+' : ''}${action}`);
+        // this._log(`🔍 Сгенерировано простое действие: ${action >= 0 ? '+' : ''}${action}`);
         return action;
       }
     }
@@ -585,7 +591,7 @@ export class FriendsExampleGenerator {
     for (let digit = 1; digit <= 9; digit++) {
       // Пробуем сложение
       if (this._canPlusDirect(states[0] || 0, digit)) {
-        this._log(`🔍 Fallback: простое действие +${digit}`);
+        // this._log(`🔍 Fallback: простое действие +${digit}`);
         return digit;
       }
     }
@@ -593,13 +599,13 @@ export class FriendsExampleGenerator {
     for (let digit = 1; digit <= 9; digit++) {
       // Пробуем вычитание
       if (this._canMinusDirect(states[0] || 0, digit) && currentNumber >= digit) {
-        this._log(`🔍 Fallback: простое действие -${digit}`);
+        // this._log(`🔍 Fallback: простое действие -${digit}`);
         return -digit;
       }
     }
 
     // Последний fallback: +1 без проверки
-    this._log(`🔍 Последний fallback: +1`);
+    // this._log(`🔍 Последний fallback: +1`);
     return 1;
   }
 
