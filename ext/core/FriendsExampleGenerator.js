@@ -628,6 +628,7 @@ export class FriendsExampleGenerator {
     actionDigits[this.targetPosition] = friendDigit;
 
     // Для остальных разрядов подбираем простые цифры
+    // 🔥 ВАЖНО: Проверяем, что для НЕцелевых разрядов НЕ требуется Friends/Brothers
     for (let pos = 0; pos < this.config.digitCount; pos++) {
       if (pos === this.targetPosition) continue;
 
@@ -635,11 +636,14 @@ export class FriendsExampleGenerator {
       const possibleDigits = [];
 
       for (let d = 0; d <= 9; d++) {
-        if (isAddition && this._canPlusDirect(currentVal, d)) {
-          possibleDigits.push(d);
-        } else if (!isAddition && d === 0) {
+        // 🔥 КРИТИЧНО: Проверяем ВСЕ цифры, не только целевой разряд
+        // Для нецелевых разрядов НЕ ДОЛЖНЫ требоваться Brothers/Friends
+        if (d === 0) {
+          // d=0 означает "не изменять этот разряд" - всегда разрешено
           possibleDigits.push(0);
-        } else if (!isAddition && d > 0 && this._canMinusDirect(currentVal, d)) {
+        } else if (isAddition && this._canPlusDirect(currentVal, d)) {
+          possibleDigits.push(d);
+        } else if (!isAddition && this._canMinusDirect(currentVal, d)) {
           possibleDigits.push(d);
         }
       }
