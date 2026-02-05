@@ -56,10 +56,10 @@ describe('FriendsExampleGenerator - Граничные случаи', () => {
       const example = gen.generate();
       const firstAction = example.steps[0].action;
 
-      // Для digitCount=1 первое действие должно быть в диапазоне [5, 9]
-      // (верхняя половина однозначных чисел)
-      expect(firstAction).toBeGreaterThanOrEqual(5);
-      expect(firstAction).toBeLessThanOrEqual(9);
+      // Для digitCount=1 (stateDigitCount=2) первое действие должно быть в диапазоне [10, 99]
+      // Это обеспечивает разряд десятков >= 1 для Friends вычитания (-n = -10 + friend)
+      expect(firstAction).toBeGreaterThanOrEqual(10);
+      expect(firstAction).toBeLessThanOrEqual(99);
     });
 
     it('должен генерировать БОЛЬШОЕ первое действие для digitCount=2', () => {
@@ -73,9 +73,10 @@ describe('FriendsExampleGenerator - Граничные случаи', () => {
       const example = gen.generate();
       const firstAction = example.steps[0].action;
 
-      // Для digitCount=2 первое действие должно быть в диапазоне [50, 99]
-      expect(firstAction).toBeGreaterThanOrEqual(50);
-      expect(firstAction).toBeLessThanOrEqual(99);
+      // Для digitCount=2 (stateDigitCount=3) первое действие должно быть в диапазоне [100, 999]
+      // Это обеспечивает разряд сотен >= 1 для Friends вычитания
+      expect(firstAction).toBeGreaterThanOrEqual(100);
+      expect(firstAction).toBeLessThanOrEqual(999);
     });
 
     it('должен генерировать БОЛЬШОЕ первое действие для digitCount=3', () => {
@@ -89,9 +90,10 @@ describe('FriendsExampleGenerator - Граничные случаи', () => {
       const example = gen.generate();
       const firstAction = example.steps[0].action;
 
-      // Для digitCount=3 первое действие должно быть в диапазоне [500, 999]
-      expect(firstAction).toBeGreaterThanOrEqual(500);
-      expect(firstAction).toBeLessThanOrEqual(999);
+      // Для digitCount=3 (stateDigitCount=4) первое действие должно быть в диапазоне [1000, 9999]
+      // Это обеспечивает разряд тысяч >= 1 для Friends вычитания
+      expect(firstAction).toBeGreaterThanOrEqual(1000);
+      expect(firstAction).toBeLessThanOrEqual(9999);
     });
   });
 
