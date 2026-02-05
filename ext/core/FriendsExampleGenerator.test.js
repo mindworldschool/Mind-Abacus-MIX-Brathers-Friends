@@ -14,7 +14,7 @@ describe('FriendsExampleGenerator - Граничные случаи', () => {
           onlySubtraction: true,
           silent: true
         });
-      }).toThrow('взаимоисключающие');
+      }).toThrow('не могут быть активны одновременно');
     });
 
     it('должен успешно создаться с onlyAddition=true', () => {
@@ -56,9 +56,10 @@ describe('FriendsExampleGenerator - Граничные случаи', () => {
       const example = gen.generate();
       const firstAction = example.steps[0].action;
 
-      // Для digitCount=1 первое действие должно быть в диапазоне [20, 99]
-      expect(firstAction).toBeGreaterThanOrEqual(20);
-      expect(firstAction).toBeLessThanOrEqual(99);
+      // Для digitCount=1 первое действие должно быть в диапазоне [5, 9]
+      // (верхняя половина однозначных чисел)
+      expect(firstAction).toBeGreaterThanOrEqual(5);
+      expect(firstAction).toBeLessThanOrEqual(9);
     });
 
     it('должен генерировать БОЛЬШОЕ первое действие для digitCount=2', () => {
