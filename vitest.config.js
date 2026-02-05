@@ -17,7 +17,7 @@ export default defineConfig({
         'build/'
       ]
     },
-    include: ['__tests__/**/*.test.js'],
+    include: ['__tests__/**/*.test.js', '**/*.test.js'],
     exclude: ['node_modules', 'dist', 'build']
   }
 });
