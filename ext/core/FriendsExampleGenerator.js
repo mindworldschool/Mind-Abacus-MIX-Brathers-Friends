@@ -652,8 +652,16 @@ export class FriendsExampleGenerator {
         return null;
       }
 
-      // Предпочитаем 0 для простоты
-      actionDigits[pos] = possibleDigits.includes(0) ? 0 : possibleDigits[Math.floor(Math.random() * possibleDigits.length)];
+      // 🔥 ИСПРАВЛЕНО: Избегаем круглых чисел
+      // Предпочитаем не-нулевые цифры для разнообразия
+      const nonZeroDigits = possibleDigits.filter(d => d !== 0);
+      if (nonZeroDigits.length > 0) {
+        // Выбираем случайную не-нулевую цифру
+        actionDigits[pos] = nonZeroDigits[Math.floor(Math.random() * nonZeroDigits.length)];
+      } else {
+        // Если доступна только 0, используем её
+        actionDigits[pos] = 0;
+      }
     }
 
     // Конвертируем в число
@@ -671,7 +679,8 @@ export class FriendsExampleGenerator {
    * Генерирует простое действие (без Brothers и Friends).
    * Действие представлено одним числом (например, +23 или -15).
    * Проверяет что каждый разряд можно изменить простым жестом.
-   * УЧИТЫВАЕТ флаги onlyAddition/onlySubtraction для выбора направления.
+   * 🔥 ИСПРАВЛЕНО: НЕ учитывает флаги onlyAddition/onlySubtraction.
+   * Флаги применяются ТОЛЬКО к Friends действиям, Simple могут быть любыми.
    */
   _generateSimpleAction(states, skipFirstCheck = false) {
     const currentNumber = this.stateToNumber(states.slice(0, this.config.digitCount));
@@ -684,23 +693,19 @@ export class FriendsExampleGenerator {
       // Собираем доступные действия
       const availableActions = [];
 
-      // Сложение (только если разрешено)
-      if (this.directionConfig.canAddition() || skipFirstCheck) {
-        for (let digit = 1; digit <= 9; digit++) {
-          const currentVal = states[0] || 0;
-          if (this._canPlusDirect(currentVal, digit)) {
-            availableActions.push(digit);
-          }
+      // 🔥 ИСПРАВЛЕНО: Сложение всегда разрешено для Simple действий
+      for (let digit = 1; digit <= 9; digit++) {
+        const currentVal = states[0] || 0;
+        if (this._canPlusDirect(currentVal, digit)) {
+          availableActions.push(digit);
         }
       }
 
-      // Вычитание (только если разрешено)
-      if (this.directionConfig.canSubtraction() || skipFirstCheck) {
-        for (let digit = 1; digit <= 9; digit++) {
-          const currentVal = states[0] || 0;
-          if (this._canMinusDirect(currentVal, digit) && currentNumber >= digit) {
-            availableActions.push(-digit);
-          }
+      // 🔥 ИСПРАВЛЕНО: Вычитание всегда разрешено для Simple действий
+      for (let digit = 1; digit <= 9; digit++) {
+        const currentVal = states[0] || 0;
+        if (this._canMinusDirect(currentVal, digit) && currentNumber >= digit) {
+          availableActions.push(-digit);
         }
       }
 
@@ -710,34 +715,20 @@ export class FriendsExampleGenerator {
         return availableActions[randomIndex];
       }
 
-      // Fallback: если ничего не подошло, игнорируем флаги и пробуем снова
-      if (!skipFirstCheck) {
-        return this._generateSimpleAction(states, true);
-      }
-
       // Последний fallback: +1
       return 1;
     }
 
-    // Для многозначных чисел - существующая логика с учетом флагов
+    // Для многозначных чисел - существующая логика
+    // 🔥 ИСПРАВЛЕНО: НЕ учитываем флаги onlyAddition/onlySubtraction для Simple действий
     // Пробуем сгенерировать корректное простое действие
     for (let attempt = 0; attempt < 100; attempt++) {
       // Генерируем случайное число
       const value = 1 + Math.floor(Math.random() * maxValue);
 
-      // Определяем направление с учетом флагов
-      let isAddition;
-      if (skipFirstCheck) {
-        // Fallback режим - пробуем оба направления
-        isAddition = Math.random() < 0.5;
-      } else if (this.directionConfig.onlyAddition) {
-        isAddition = true;
-      } else if (this.directionConfig.onlySubtraction) {
-        isAddition = false;
-      } else {
-        // Смешанный режим
-        isAddition = Math.random() < 0.5;
-      }
+      // 🔥 ИСПРАВЛЕНО: Определяем направление случайно, БЕЗ учета флагов
+      // Флаги применяются ТОЛЬКО к Friends действиям
+      const isAddition = Math.random() < 0.5;
 
       const action = isAddition ? value : -value;
 
@@ -775,30 +766,21 @@ export class FriendsExampleGenerator {
       }
     }
 
-    // Fallback: пробуем простые однозначные действия с учетом флагов
-    // Сложение
-    if (this.directionConfig.canAddition() || skipFirstCheck) {
-      for (let digit = 1; digit <= 9; digit++) {
-        if (this._canPlusDirect(states[0] || 0, digit)) {
-          // this._log(`🔍 Fallback: простое действие +${digit}`);
-          return digit;
-        }
+    // 🔥 ИСПРАВЛЕНО: Fallback без учета флагов
+    // Сложение (всегда доступно для Simple)
+    for (let digit = 1; digit <= 9; digit++) {
+      if (this._canPlusDirect(states[0] || 0, digit)) {
+        // this._log(`🔍 Fallback: простое действие +${digit}`);
+        return digit;
       }
     }
 
-    // Вычитание
-    if (this.directionConfig.canSubtraction() || skipFirstCheck) {
-      for (let digit = 1; digit <= 9; digit++) {
-        if (this._canMinusDirect(states[0] || 0, digit) && currentNumber >= digit) {
-          // this._log(`🔍 Fallback: простое действие -${digit}`);
-          return -digit;
-        }
+    // Вычитание (всегда доступно для Simple)
+    for (let digit = 1; digit <= 9; digit++) {
+      if (this._canMinusDirect(states[0] || 0, digit) && currentNumber >= digit) {
+        // this._log(`🔍 Fallback: простое действие -${digit}`);
+        return -digit;
       }
-    }
-
-    // Последний fallback: рекурсивный вызов с игнорированием флагов
-    if (!skipFirstCheck) {
-      return this._generateSimpleAction(states, true);
     }
 
     // Совсем последний fallback: +1
