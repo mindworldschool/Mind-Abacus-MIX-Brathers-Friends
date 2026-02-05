@@ -1047,16 +1047,14 @@ export class MixExampleGenerator {
             lowerDigits: lowerDigits,
             formula: isAddition
               ? [
-                  { step: this._getPositionName(this.targetPosition), op: '+', val: 5 },
-                  { step: this._getPositionName(this.targetPosition), op: '-', val: brother },
-                  { step: this._getPositionName(this.targetPosition + 1), op: '+', val: 1 },
-                  { step: this._getPositionName(this.targetPosition), op: '-', val: friend }
-                ]
-              : [
                   { step: this._getPositionName(this.targetPosition), op: '-', val: 5 },
                   { step: this._getPositionName(this.targetPosition), op: '+', val: brother },
-                  { step: this._getPositionName(this.targetPosition + 1), op: '-', val: 1 },
-                  { step: this._getPositionName(this.targetPosition), op: '+', val: friend }
+                  { step: this._getPositionName(this.targetPosition + 1), op: '+', val: 1 }
+                ]
+              : [
+                  { step: this._getPositionName(this.targetPosition), op: '+', val: 5 },
+                  { step: this._getPositionName(this.targetPosition), op: '-', val: brother },
+                  { step: this._getPositionName(this.targetPosition + 1), op: '-', val: 1 }
                 ]
           }
         },
@@ -1156,16 +1154,14 @@ export class MixExampleGenerator {
           lowerDigits: lowerDigits,
           formula: isAddition
             ? [
-                { step: this._getPositionName(this.targetPosition), op: '+', val: 5 },
-                { step: this._getPositionName(this.targetPosition), op: '-', val: brother },
-                { step: this._getPositionName(this.targetPosition + 1), op: '+', val: 1 },
-                { step: this._getPositionName(this.targetPosition), op: '-', val: friend }
-              ]
-            : [
                 { step: this._getPositionName(this.targetPosition), op: '-', val: 5 },
                 { step: this._getPositionName(this.targetPosition), op: '+', val: brother },
-                { step: this._getPositionName(this.targetPosition + 1), op: '-', val: 1 },
-                { step: this._getPositionName(this.targetPosition), op: '+', val: friend }
+                { step: this._getPositionName(this.targetPosition + 1), op: '+', val: 1 }
+              ]
+            : [
+                { step: this._getPositionName(this.targetPosition), op: '+', val: 5 },
+                { step: this._getPositionName(this.targetPosition), op: '-', val: brother },
+                { step: this._getPositionName(this.targetPosition + 1), op: '-', val: 1 }
               ]
         }
       },
