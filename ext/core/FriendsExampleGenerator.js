@@ -553,17 +553,23 @@ export class FriendsExampleGenerator {
     if (this.directionConfig.needsBigFirstAction()) {
       let minValue, maxValue;
 
-      // Для ЛЮБОГО digitCount генерируем действие В ПРЕДЕЛАХ РАЗРЯДНОСТИ
-      // но в верхней части диапазона
-      maxValue = Math.pow(10, this.config.digitCount) - 1;  // Максимум для digitCount
-      minValue = Math.floor(maxValue * 0.5);  // Берем верхнюю половину диапазона
+      // КРИТИЧНО: Для правила Друзья при вычитании нужен дополнительный разряд!
+      // Формула: -n = -10 + friend требует разряд десятков >= 1
+      // Поэтому генерируем число с учетом stateDigitCount (а не digitCount)
 
-      // Для digitCount=1: диапазон [5, 9]
-      // Для digitCount=2: диапазон [50, 99]
-      // Для digitCount=3: диапазон [500, 999]
+      // Для digitCount=1 (stateDigitCount=2): нужно >= 10 для Friends вычитания
+      // Для digitCount=2 (stateDigitCount=3): нужно >= 100 для Friends вычитания
+      // Общая логика: минимум = 10^digitCount (начало следующего разряда)
+      minValue = Math.pow(10, this.config.digitCount);
+
+      // Максимум = верхняя половина доступного диапазона состояния
+      // Для digitCount=1: [10, 99] (максимум состояния = 99)
+      // Для digitCount=2: [100, 999] (максимум состояния = 999)
+      maxValue = Math.pow(10, this.stateDigitCount) - 1;
 
       const bigNumber = minValue + Math.floor(Math.random() * (maxValue - minValue + 1));
       this._log(`🎯 Первое действие (onlySubtraction): +${bigNumber} (диапазон: [${minValue}, ${maxValue}])`);
+      this._log(`   ℹ️ Это обеспечит разряд ${this.config.digitCount} >= 1 для Friends вычитания`);
       return bigNumber;
     }
 
@@ -613,7 +619,11 @@ export class FriendsExampleGenerator {
             // Генерируем многозначное действие
             const value = this._buildMultiDigitAction(friendDigit, states, false);
             if (value !== null) {
-              return { value: -value, friendDigit, isAddition: false };
+              // КРИТИЧНО: Проверяем что не уйдем в отрицательные числа
+              const currentNumber = this.stateToNumber(states);
+              if (currentNumber >= value) {
+                return { value: -value, friendDigit, isAddition: false };
+              }
             }
           }
         }
@@ -794,7 +804,11 @@ export class FriendsExampleGenerator {
     const newStates = [...states];
     const value = Math.abs(action);
     const isAddition = action >= 0;
-    const actionDigits = this._numberToDigits(value, this.config.digitCount);
+
+    // КРИТИЧНО: Используем stateDigitCount вместо digitCount
+    // Потому что первое действие может быть больше digitCount
+    // (например, +68 для digitCount=1 в режиме onlySubtraction)
+    const actionDigits = this._numberToDigits(value, this.stateDigitCount);
 
     for (let pos = 0; pos < actionDigits.length; pos++) {
       const digit = actionDigits[pos] || 0;
@@ -828,9 +842,11 @@ export class FriendsExampleGenerator {
     }
 
     // Применяем остальные разряды (Simple)
-    const actionDigits = this._numberToDigits(Math.abs(value), this.config.digitCount);
-    for (let pos = 0; pos < this.config.digitCount; pos++) {
-      if (pos === this.targetPosition) continue;  // Целевой разряд уже обработан
+    // КРИТИЧНО: Используем stateDigitCount для правильной обработки всех разрядов
+    const actionDigits = this._numberToDigits(Math.abs(value), this.stateDigitCount);
+    for (let pos = 0; pos < this.stateDigitCount; pos++) {
+      if (pos === this.targetPosition) continue;  // Целевой разряд уже обработан по правилу Friends
+      if (pos === this.targetPosition + 1) continue;  // Этот разряд тоже обработан (+10 или -10)
 
       const digit = actionDigits[pos] || 0;
       if (isAddition) {
@@ -855,8 +871,10 @@ export class FriendsExampleGenerator {
     // Первое действие: учитываем режим и digitCount
     let action;
     if (this.directionConfig.needsBigFirstAction()) {
-      // Для onlySubtraction - генерируем большое действие
-      action = this._generateFirstAction();
+      // Для onlySubtraction - используем ту же логику что и в _generateFirstAction
+      const minValue = Math.pow(10, this.config.digitCount);
+      const maxValue = Math.pow(10, this.stateDigitCount) - 1;
+      action = minValue + Math.floor(Math.random() * (maxValue - minValue + 1));
     } else {
       // Для обычного режима - генерируем действие в пределах digitCount
       const maxValue = Math.pow(10, this.config.digitCount) - 1;
