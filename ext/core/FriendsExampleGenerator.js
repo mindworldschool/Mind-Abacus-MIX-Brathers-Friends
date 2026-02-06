@@ -442,6 +442,25 @@ export class FriendsExampleGenerator {
     // Увеличиваем количество попыток для большей гибкости
     const maxLoopAttempts = targetSteps * 100;
     let consecutiveSimpleActions = 0; // Счетчик подряд идущих Simple действий
+    let consecutiveFriendActions = 0; // 🔥 НОВОЕ: Счетчик подряд идущих Friend действий
+
+    // 🔥 НОВОЕ: Функция проверки повторов
+    // Проверяем что абсолютное значение не повторяется в последних 2-3 шагах
+    const isRepeatingAction = (newAction) => {
+      if (steps.length === 0) return false;
+
+      const absNewAction = Math.abs(newAction);
+      const windowSize = Math.min(3, steps.length); // окно 2-3 последних шага
+
+      for (let i = steps.length - 1; i >= steps.length - windowSize; i--) {
+        const prevAction = steps[i].action;
+        if (Math.abs(prevAction) === absNewAction) {
+          return true; // ❌ Повтор найден!
+        }
+      }
+
+      return false; // ✅ Не повторяется
+    };
 
     while (steps.length < targetSteps && attempts < maxLoopAttempts) {
       attempts++;
@@ -451,33 +470,49 @@ export class FriendsExampleGenerator {
       // Решаем: генерировать Friends или Simple
       let action = null;
 
+      // 🔥 УЛУЧШЕННАЯ ЛОГИКА чередования:
       // Приоритет Friends если:
       // 1. Нужно больше Friends действий
-      // 2. Или с вероятностью 50% если осталось >= 2 шагов
-      // 3. Или если слишком много подряд Simple действий (больше 3)
+      // 2. Или с вероятностью 40% если осталось >= 2 шагов (уменьшили с 50%)
+      // 3. Или если слишком много подряд Simple действий (больше 2)
+      // 4. НО НЕ если слишком много подряд Friend действий (больше 2)
       const shouldTryFriends = needMoreFriends ||
-                               (stepsRemaining >= 2 && Math.random() < 0.5) ||
-                               consecutiveSimpleActions > 3;
+                               (stepsRemaining >= 2 && Math.random() < 0.4 && consecutiveFriendActions <= 2) ||
+                               (consecutiveSimpleActions > 2 && consecutiveFriendActions <= 2);
 
       if (shouldTryFriends) {
         // Пытаемся Friends
         action = this._tryGenerateFriendAction(states);
         if (action) {
-          const newStates = this._applyFriendAction(states, action);
-          if (newStates && this._isValidState(newStates) && !this._checkOverflow(newStates)) {
-            steps.push({
-              action: action.value,
-              isFriend: true,
-              friendN: action.friendDigit,
-              formula: this._buildFormula(action.value, this.targetPosition),
-              states: [...newStates]
-            });
-            states = newStates;
-            friendStepsCount++;
-            consecutiveSimpleActions = 0; // Сбрасываем счетчик
-            // Убираем детальные логи для ускорения
-            // this._log(`Шаг ${steps.length}: Friends ${action.value >= 0 ? '+' : ''}${action.value}, состояние: [${states.join(', ')}]`);
-            continue;
+          // 🔥 НОВОЕ: проверяем повтор
+          if (isRepeatingAction(action.value)) {
+            // Пытаемся найти другое Friends действие
+            action = null;
+            for (let retry = 0; retry < 5; retry++) {
+              const retryAction = this._tryGenerateFriendAction(states);
+              if (retryAction && !isRepeatingAction(retryAction.value)) {
+                action = retryAction;
+                break;
+              }
+            }
+          }
+
+          if (action) {
+            const newStates = this._applyFriendAction(states, action);
+            if (newStates && this._isValidState(newStates) && !this._checkOverflow(newStates)) {
+              steps.push({
+                action: action.value,
+                isFriend: true,
+                friendN: action.friendDigit,
+                formula: this._buildFormula(action.value, this.targetPosition),
+                states: [...newStates]
+              });
+              states = newStates;
+              friendStepsCount++;
+              consecutiveSimpleActions = 0; // Сбрасываем счетчик Simple
+              consecutiveFriendActions++; // 🔥 НОВОЕ: увеличиваем счетчик Friend
+              continue;
+            }
           }
         }
       }
@@ -485,17 +520,31 @@ export class FriendsExampleGenerator {
       // Генерируем Simple
       action = this._generateSimpleAction(states);
       if (action) {
-        const newStates = this._applySimpleAction(states, action);
-        if (newStates && this._isValidState(newStates) && !this._checkOverflow(newStates)) {
-          steps.push({
-            action: action,
-            isFriend: false,
-            states: [...newStates]
-          });
-          states = newStates;
-          consecutiveSimpleActions++;
-          // Убираем детальные логи для ускорения
-          // this._log(`Шаг ${steps.length}: Simple ${action >= 0 ? '+' : ''}${action}, состояние: [${states.join(', ')}]`);
+        // 🔥 НОВОЕ: проверяем повтор
+        if (isRepeatingAction(action)) {
+          // Пытаемся найти другое Simple действие
+          action = null;
+          for (let retry = 0; retry < 5; retry++) {
+            const retryAction = this._generateSimpleAction(states, true);
+            if (retryAction && !isRepeatingAction(retryAction)) {
+              action = retryAction;
+              break;
+            }
+          }
+        }
+
+        if (action) {
+          const newStates = this._applySimpleAction(states, action);
+          if (newStates && this._isValidState(newStates) && !this._checkOverflow(newStates)) {
+            steps.push({
+              action: action,
+              isFriend: false,
+              states: [...newStates]
+            });
+            states = newStates;
+            consecutiveSimpleActions++;
+            consecutiveFriendActions = 0; // 🔥 НОВОЕ: сбрасываем счетчик Friend
+          }
         }
       }
     }
@@ -548,6 +597,11 @@ export class FriendsExampleGenerator {
   _generateFirstAction() {
     this._log(`🔍 _generateFirstAction: digitCount=${this.config.digitCount}, режим=${this.directionConfig.getModeName()}`);
 
+    // Функция проверки: число не должно быть круглым (кратным 10)
+    const isRoundNumber = (num) => {
+      return num % 10 === 0;
+    };
+
     // Для onlySubtraction - генерируем действие в ВЕРХНЕЙ части диапазона
     // Это обеспечит достаточно места для вычитания
     if (this.directionConfig.needsBigFirstAction()) {
@@ -567,7 +621,19 @@ export class FriendsExampleGenerator {
       // Для digitCount=2: [100, 999] (максимум состояния = 999)
       maxValue = Math.pow(10, this.stateDigitCount) - 1;
 
-      const bigNumber = minValue + Math.floor(Math.random() * (maxValue - minValue + 1));
+      // 🔥 ИСПРАВЛЕНИЕ: избегаем круглых чисел
+      let bigNumber;
+      let attempts = 0;
+      do {
+        bigNumber = minValue + Math.floor(Math.random() * (maxValue - minValue + 1));
+        attempts++;
+      } while (isRoundNumber(bigNumber) && attempts < 100);
+
+      // Если не нашли некруглое число, добавляем +1
+      if (isRoundNumber(bigNumber)) {
+        bigNumber = bigNumber + 1;
+      }
+
       this._log(`🎯 Первое действие (onlySubtraction): +${bigNumber} (диапазон: [${minValue}, ${maxValue}])`);
       this._log(`   ℹ️ Это обеспечит разряд ${this.config.digitCount} >= 1 для Friends вычитания`);
       return bigNumber;
@@ -576,7 +642,20 @@ export class FriendsExampleGenerator {
     // Для остальных режимов - обычное маленькое действие
     const maxValue = Math.pow(10, this.config.digitCount) - 1;
     const minValue = Math.pow(10, this.config.digitCount - 1);
-    const value = minValue + Math.floor(Math.random() * (maxValue - minValue + 1));
+
+    // 🔥 ИСПРАВЛЕНИЕ: избегаем круглых чисел
+    let value;
+    let attempts = 0;
+    do {
+      value = minValue + Math.floor(Math.random() * (maxValue - minValue + 1));
+      attempts++;
+    } while (isRoundNumber(value) && attempts < 100);
+
+    // Если не нашли некруглое число, добавляем +1
+    if (isRoundNumber(value)) {
+      value = value + 1;
+    }
+
     this._log(`🎯 Первое действие (обычный режим): +${value} (диапазон: [${minValue}, ${maxValue}])`);
     return value;
   }
@@ -645,12 +724,18 @@ export class FriendsExampleGenerator {
       const currentVal = states[pos] || 0;
       const possibleDigits = [];
 
+      // 🔥 КРИТИЧНО: Для младшего разряда (единицы) НЕ разрешаем 0 (избегаем круглых чисел!)
+      const isLowestDigit = pos === 0;
+
       for (let d = 0; d <= 9; d++) {
         // 🔥 КРИТИЧНО: Проверяем ВСЕ цифры, не только целевой разряд
         // Для нецелевых разрядов НЕ ДОЛЖНЫ требоваться Brothers/Friends
         if (d === 0) {
-          // d=0 означает "не изменять этот разряд" - всегда разрешено
-          possibleDigits.push(0);
+          // d=0 означает "не изменять этот разряд"
+          // НО для младшего разряда (единицы) НЕ разрешаем 0!
+          if (!isLowestDigit) {
+            possibleDigits.push(0);
+          }
         } else if (isAddition && this._canPlusDirect(currentVal, d)) {
           possibleDigits.push(d);
         } else if (!isAddition && this._canMinusDirect(currentVal, d)) {
@@ -663,13 +748,13 @@ export class FriendsExampleGenerator {
       }
 
       // 🔥 ИСПРАВЛЕНО: Избегаем круглых чисел
-      // Предпочитаем не-нулевые цифры для разнообразия
+      // Для ВСЕХ разрядов предпочитаем не-нулевые цифры
       const nonZeroDigits = possibleDigits.filter(d => d !== 0);
       if (nonZeroDigits.length > 0) {
         // Выбираем случайную не-нулевую цифру
         actionDigits[pos] = nonZeroDigits[Math.floor(Math.random() * nonZeroDigits.length)];
       } else {
-        // Если доступна только 0, используем её
+        // Если доступна только 0, используем её (только для НЕмладших разрядов)
         actionDigits[pos] = 0;
       }
     }
@@ -678,6 +763,12 @@ export class FriendsExampleGenerator {
     let result = 0;
     for (let i = 0; i < actionDigits.length; i++) {
       result += actionDigits[i] * Math.pow(10, i);
+    }
+
+    // 🔥 ФИНАЛЬНАЯ ПРОВЕРКА: результат не должен быть кратным 10
+    if (result % 10 === 0 && result > 0) {
+      // Добавляем +1 к единицам
+      result += 1;
     }
 
     return result;
@@ -735,6 +826,11 @@ export class FriendsExampleGenerator {
     for (let attempt = 0; attempt < 100; attempt++) {
       // Генерируем случайное число
       const value = 1 + Math.floor(Math.random() * maxValue);
+
+      // 🔥 НОВОЕ: Избегаем круглых чисел (кратных 10)
+      if (value % 10 === 0) {
+        continue;
+      }
 
       // 🔥 ИСПРАВЛЕНО: Определяем направление случайно, БЕЗ учета флагов
       // Флаги применяются ТОЛЬКО к Friends действиям
