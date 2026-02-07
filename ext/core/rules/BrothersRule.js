@@ -19,6 +19,19 @@ export class BrothersRule extends BaseRule {
       ? config.blocks.simple.digits.map(n => parseInt(n, 10)).filter(n => n >= 1 && n <= 9)
       : [1, 2, 3, 4, 5]; // по умолчанию 1-5
 
+    // 🔥 АДАПТИВНЫЙ ПРИОРИТЕТ: чем меньше выбрано цифр, тем выше приоритет
+    // Это компенсирует меньшее количество возможных братских переходов
+    let brotherPriority;
+    if (brothersDigits.length === 1) {
+      brotherPriority = 0.75;  // 75% для 1 цифры
+    } else if (brothersDigits.length === 2) {
+      brotherPriority = 0.70;  // 70% для 2 цифр
+    } else if (brothersDigits.length === 3) {
+      brotherPriority = 0.65;  // 65% для 3 цифр
+    } else {
+      brotherPriority = 0.60;  // 60% для 4 цифр
+    }
+
     this.config = {
       ...this.config,
       name: "Братья",
@@ -32,7 +45,7 @@ export class BrothersRule extends BaseRule {
       onlySubtraction: config.onlySubtraction ?? false,
       digitCount: config.digitCount ?? 1,
       combineLevels: config.combineLevels ?? false,
-      brotherPriority: 0.5,  // 50% приоритет братским шагам
+      brotherPriority,  // Адаптивный приоритет братским шагам
       blocks: config.blocks ?? {},
       silent: config.silent || false  // Флаг тихого режима
     };
@@ -67,13 +80,19 @@ export class BrothersRule extends BaseRule {
   /**
    * Создание таблицы обменных пар
    * Для каждого выбранного "брата N" создаем возможные переходы через 5
+   *
+   * 🧮 ФИЗИКА АБАКУСА:
+   * Братское действие применяется ТОЛЬКО когда прямое действие НЕВОЗМОЖНО!
+   * - Верхняя бусина (U): 0 или 1 (значение 5)
+   * - Нижние бусины (L): 0-4 (максимум 4)
+   * - Состояние: S = U×5 + L
    */
   _buildBrotherPairs(digits) {
     const pairs = new Set();
-    
+
     for (const n of digits) {
       const brother = 5 - n; // брат для n
-      
+
       // Переходы "вверх": v → v+n через +5-brother
       for (let v = 0; v <= 9; v++) {
         const vNext = v + n;
@@ -81,33 +100,33 @@ export class BrothersRule extends BaseRule {
           // Проверяем физическую возможность через 5
           const U = v >= 5 ? 1 : 0;
           const L = v >= 5 ? v - 5 : v;
-          
-          // +n через +5-brother возможно если:
+
+          // ✅ ИСПРАВЛЕНО: +n через +5-brother возможно ТОЛЬКО если:
           // - верхняя бусина неактивна (U=0)
-          // - после +5 можем убрать brother нижних
-          if (U === 0 && L + 5 >= brother) {
+          // - прямое добавление НЕВОЗМОЖНО: L + n > 4 (нижние переполнятся)
+          if (U === 0 && L + n > 4) {
             pairs.add(`${v}-${vNext}-brother${n}`);
           }
         }
       }
-      
+
       // Переходы "вниз": v → v-n через -5+brother
       for (let v = 0; v <= 9; v++) {
         const vNext = v - n;
         if (vNext >= 0 && vNext <= 9) {
           const U = v >= 5 ? 1 : 0;
           const L = v >= 5 ? v - 5 : v;
-          
-          // -n через -5+brother возможно если:
+
+          // ✅ ИСПРАВЛЕНО: -n через -5+brother возможно ТОЛЬКО если:
           // - верхняя бусина активна (U=1)
-          // - можем добавить brother нижних после -5
-          if (U === 1 && L + brother <= 4) {
+          // - прямое убирание НЕВОЗМОЖНО: L < n (нижних не хватает)
+          if (U === 1 && L < n) {
             pairs.add(`${v}-${vNext}-brother${n}`);
           }
         }
       }
     }
-    
+
     this._log(`📊 Создано ${pairs.size} братских переходов`);
     return pairs;
   }
@@ -398,7 +417,12 @@ export class BrothersRule extends BaseRule {
   }
 
   /**
-   * Валидация: хотя бы 1 братский шаг
+   * Валидация: минимальное количество братских шагов
+   *
+   * 🎯 АДАПТИВНАЯ ЛОГИКА:
+   * - Малое количество шагов (3-7): минимум 25-30%
+   * - Среднее количество (8-12): минимум 30-35%
+   * - Большое количество (13+): минимум 35-40%
    */
   validateExample(example) {
     const { start, steps, answer } = example;
@@ -410,7 +434,7 @@ export class BrothersRule extends BaseRule {
     }
 
     let s = start;
-    let hasBrother = false;
+    let brotherStepsCount = 0;
 
     for (const step of steps) {
       const act = step.action ?? step;
@@ -419,7 +443,9 @@ export class BrothersRule extends BaseRule {
         this._warn(`❌ validateExample: выход за диапазон [${minState}, ${maxState}]: ${s}`);
         return false;
       }
-      if (typeof act === "object" && act.isBrother) hasBrother = true;
+      if (typeof act === "object" && act.isBrother) {
+        brotherStepsCount++;
+      }
     }
 
     if (s !== answer) {
@@ -427,12 +453,34 @@ export class BrothersRule extends BaseRule {
       return false;
     }
 
-    if (!hasBrother) {
-      this._warn("❌ validateExample: нет братских шагов");
+    // Вычисляем минимальное количество братских шагов
+    const totalSteps = steps.length;
+    let minBrotherSteps;
+
+    if (totalSteps <= 7) {
+      // Малое количество: минимум 25-30%
+      minBrotherSteps = Math.max(1, Math.ceil(totalSteps * 0.25));
+    } else if (totalSteps <= 12) {
+      // Среднее количество: минимум 30-35%
+      minBrotherSteps = Math.ceil(totalSteps * 0.30);
+    } else {
+      // Большое количество: минимум 35-40%
+      minBrotherSteps = Math.ceil(totalSteps * 0.35);
+    }
+
+    if (brotherStepsCount < minBrotherSteps) {
+      this._warn(
+        `❌ validateExample: недостаточно братских шагов: ${brotherStepsCount}/${minBrotherSteps} ` +
+        `(${Math.round(brotherStepsCount / totalSteps * 100)}% из ${totalSteps} шагов)`
+      );
       return false;
     }
 
-    this._log(`✅ validateExample: пример валидный (${steps.length} шагов, есть братские)`);
+    const percentage = Math.round(brotherStepsCount / totalSteps * 100);
+    this._log(
+      `✅ validateExample: пример валидный (${steps.length} шагов, ` +
+      `${brotherStepsCount} братских = ${percentage}%)`
+    );
     return true;
   }
 }
