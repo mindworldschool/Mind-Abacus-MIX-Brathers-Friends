@@ -420,13 +420,13 @@ export class BrothersRule extends BaseRule {
    * Валидация: минимальное количество братских шагов
    *
    * 🎯 АДАПТИВНАЯ ЛОГИКА:
-   * - Малое количество шагов (3-7): минимум 25-30%
-   * - Среднее количество (8-12): минимум 30-35%
-   * - Большое количество (13+): минимум 35-40%
+   * Учитываем количество возможных братских переходов:
+   * - Для 1-2 цифр (мало переходов): минимум 1 братское действие
+   * - Для 3-4 цифр (больше переходов): минимум 20-30%
    */
   validateExample(example) {
     const { start, steps, answer } = example;
-    const { minState, maxState } = this.config;
+    const { minState, maxState, brothersDigits } = this.config;
 
     if (!steps || steps.length < 1) {
       this._warn("❌ validateExample: нет шагов");
@@ -453,25 +453,29 @@ export class BrothersRule extends BaseRule {
       return false;
     }
 
-    // Вычисляем минимальное количество братских шагов
+    // 🔥 АДАПТИВНЫЙ МИНИМУМ в зависимости от количества выбранных цифр
     const totalSteps = steps.length;
+    const digitCount = brothersDigits.length;
     let minBrotherSteps;
 
-    if (totalSteps <= 7) {
-      // Малое количество: минимум 25-30%
-      minBrotherSteps = Math.max(1, Math.ceil(totalSteps * 0.25));
+    if (digitCount <= 2) {
+      // Для 1-2 цифр: мало переходов, достаточно 1 братского
+      minBrotherSteps = 1;
+    } else if (totalSteps <= 7) {
+      // Для 3-4 цифр, малое количество шагов: минимум 20%
+      minBrotherSteps = Math.max(1, Math.ceil(totalSteps * 0.20));
     } else if (totalSteps <= 12) {
-      // Среднее количество: минимум 30-35%
-      minBrotherSteps = Math.ceil(totalSteps * 0.30);
+      // Среднее количество: минимум 25%
+      minBrotherSteps = Math.ceil(totalSteps * 0.25);
     } else {
-      // Большое количество: минимум 35-40%
-      minBrotherSteps = Math.ceil(totalSteps * 0.35);
+      // Большое количество: минимум 30%
+      minBrotherSteps = Math.ceil(totalSteps * 0.30);
     }
 
     if (brotherStepsCount < minBrotherSteps) {
       this._warn(
         `❌ validateExample: недостаточно братских шагов: ${brotherStepsCount}/${minBrotherSteps} ` +
-        `(${Math.round(brotherStepsCount / totalSteps * 100)}% из ${totalSteps} шагов)`
+        `(${Math.round(brotherStepsCount / totalSteps * 100)}% из ${totalSteps} шагов, выбрано ${digitCount} цифр)`
       );
       return false;
     }
